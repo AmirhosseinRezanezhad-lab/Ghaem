@@ -34,6 +34,8 @@
   .btn { background:var(--pri); color:#fff; border:none; font-weight:700; padding:11px; width:100%; margin-top:8px; }
   .btn.sec { background:#fff; color:var(--pri); border:1px solid var(--pri); }
   .counts { font-size:14px; color:var(--mut); }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+  .chips button { padding:4px 12px; border-radius:16px; font-size:15px; }
   .hidden { display:none !important; }
 
   /* search */
@@ -93,10 +95,9 @@
   <div class="card" id="cardInfo">
     <h3>۱. مشخصات برنامه</h3>
     <label>نام برنامه</label><input id="pName" placeholder="مثلاً جلسه هفتگی">
-    <div class="row">
-      <div><label>واحد</label><select id="pUnit"></select></div>
-      <div><label>تاریخ</label><input id="pDate" inputmode="numeric" placeholder="۱۴۰۵/۰۸/۲۶"></div>
-    </div>
+    <label>واحد <span class="counts">(برای برنامه همزمان چند واحد را بزنید)</span></label>
+    <div class="chips" id="unitChips"></div><input type="hidden" id="pUnit">
+    <label>تاریخ</label><input id="pDate" inputmode="numeric" placeholder="۱۴۰۵/۰۸/۲۶">
     <div class="row">
       <div><label>ساعت شروع</label><input id="pStart" type="time" value="20:00"></div>
       <div><label>ساعت پایان</label><input id="pEnd" type="time" value="22:00"></div>
@@ -137,7 +138,8 @@
 <script>
 (() => {   // own scope: the Bale SDK defines globals
 "use strict";
-let CIRCLES = [], MEMBERS = [], PASS = "";       // decrypted from members.enc after the password
+let CIRCLES = [], MEMBERS = [], UNITS = [], LEADERS = [], PASS = "";
+const UNIT_SEP = "، ";   // several units = a joint program (same as Excel and the bot)       // decrypted from members.enc after the password
 const $ = (id) => document.getElementById(id);
 const W = window.Bale && window.Bale.WebApp;
 const STATUS = { pres: "حاضر", leave: "مرخصی", abs: "غایب" };
@@ -164,9 +166,20 @@ if (W) { try { W.ready(); W.expand(); } catch (e) {} }
 function fillLists(units) {
   CIRCLES.forEach((c, i) => $("pCircle").add(new Option(c, i)));
   $("pCircle").add(new Option("همه حلقه‌ها", -1));
-  units.forEach((u) => $("pUnit").add(new Option(u, u)));
+  UNITS = units;
+}
+function selUnits() { return $("pUnit").value.split(/[،,]/).map((x) => x.trim()).filter(Boolean); }
+function renderUnits() {
+  const sel = selUnits(), box = $("unitChips"); box.innerHTML = "";
+  UNITS.concat(sel.filter((u) => !UNITS.includes(u))).forEach((u) => {
+    const b = document.createElement("button"); b.textContent = u; b.className = sel.includes(u) ? "on" : "";
+    b.onclick = () => { const s2 = selUnits(); const i = s2.indexOf(u); if (i >= 0) s2.splice(i, 1); else s2.push(u);
+      $("pUnit").value = UNITS.filter((x) => s2.includes(x)).concat(s2.filter((x) => !UNITS.includes(x))).join(UNIT_SEP); renderUnits(); };
+    box.appendChild(b);
+  });
 }
 function showForm() {
+  renderUnits();
   $("pCircle").value = state.circle;
   [...$("pType").children].forEach((b) => b.classList.toggle("on", b.dataset.v === state.type));
   render();
@@ -337,7 +350,7 @@ function openProgram(d) {
   else {
     state = newState();
     ["pName", "pDesc"].forEach((id) => $(id).value = "");
-    $("pDate").value = today(); $("pStart").value = "20:00"; $("pEnd").value = "22:00"; $("pUnit").selectedIndex = 0;
+    $("pDate").value = today(); $("pStart").value = "20:00"; $("pEnd").value = "22:00"; $("pUnit").value = "";
     showForm();
   }
   openedJson = JSON.stringify(snapshot());
@@ -365,6 +378,7 @@ function migrateOld() {   // the single draft of the previous version
 // ---------- final ----------
 $("final").onclick = async () => {
   if (!$("pName").value.trim()) { toast("نام برنامه را بنویسید"); $("pName").focus(); return; }
+  if (!selUnits().length) { toast("واحد برگزارکننده را انتخاب کنید"); return; }
   if (!/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(en($("pDate").value.trim()))) { toast("تاریخ را به شکل ۱۴۰۵/۰۸/۲۶ بنویسید"); $("pDate").focus(); return; }
   const c = counts();
   if (!FROM_LINK && !confirm(`ثبت نهایی «${$("pName").value.trim()}»؟\nحاضر ${fa(c.pres)}` + (state.type === "m" ? ` · مرخصی ${fa(c.leave)} · غایب ${fa(c.abs)}` : "") + ` · مهمان ${fa(c.guest)}`)) return;
@@ -438,7 +452,8 @@ async function makeImages() {
   rows.forEach((r) => {
     r.late = r.st === "pres" && st0 !== null && toMin(r.tin) > st0 + 10;
     cnt[r.st]++; if (r.late) cnt.late++;
-    if (!groups.has(r.c)) groups.set(r.c, []); groups.get(r.c).push(r);
+    const g = r.st === "pres" && LEADERS.includes(r.n) ? -100 : r.c;     // present commanders head the list
+    if (!groups.has(g)) groups.set(g, []); groups.get(g).push(r);
   });
   const L = BOX.side, R = PW - BOX.side, WD = R - L, BOTTOM = PH - BOX.bottom;
   const canvases = []; let x, y;
@@ -461,7 +476,7 @@ async function makeImages() {
   text(DEPT, PW / 2, y + 16 * S, F(26), "#555", "center"); y += 36 * S;
   text($("pName").value.trim(), PW / 2, y + 26 * S, F(44, true), INK, "center"); y += 60 * S;
 
-  const spans = [["واحد: ", $("pUnit").value], ["تاریخ: ", fa($("pDate").value)], ["ساعت: ", fa(start) + " تا " + fa(end)],
+  const spans = [["واحد: ", $("pUnit").value + (selUnits().length > 1 ? " (برنامه همزمان)" : "")], ["تاریخ: ", fa($("pDate").value)], ["ساعت: ", fa(start) + " تا " + fa(end)],
     ["نوع: ", mand ? "اجباری" : "اختیاری"], ["حلقه مخاطب: ", state.circle < 0 ? "همه حلقه‌ها" : CIRCLES[state.circle]]];
   const GAP = 28 * S;
   const sw = spans.map(([a, b]) => { x.font = F(27, true); const wa = x.measureText(a).width; x.font = F(27); return [wa, x.measureText(b).width]; });
@@ -521,10 +536,11 @@ async function makeImages() {
   const ST = { pres: ["حاضر", "#007832"], leave: ["مرخصی", "#966e00"], abs: ["غایب", "#be1e2d"] }, rank = { pres: 0, leave: 1, abs: 2 };
   const any2 = rows.some((r) => r.tin2 || r.tout2);
   [...groups.keys()].sort((a, b) => a - b).forEach((c) => {
-    const items = groups.get(c).sort((a, b) => rank[a.st] - rank[b.st] || (a.kind !== "رسمی") - (b.kind !== "رسمی"));
+    const lr = (n) => { const i = LEADERS.indexOf(n); return i < 0 ? 99 : i; };
+    const items = groups.get(c).sort((a, b) => rank[a.st] - rank[b.st] || lr(a.n) - lr(b.n) || (a.kind !== "رسمی") - (b.kind !== "رسمی"));
     const cols = [["ردیف", 0.07], ["نام و نام خانوادگی", null], ["نوع عضویت", 0.12], ["وضعیت", 0.1], ["ورود", 0.1], ["خروج", 0.1]];
     if (any2) cols.push(["نوبت دوم", 0.19]);
-    table(CIRCLES[c] || "سایر", cols, items.map((r, i) => {
+    table(c === -100 ? "فرماندهی" : CIRCLES[c] || "سایر", cols, items.map((r, i) => {
       const cells = [{ t: fa(i + 1) }, { t: r.n }, { t: r.kind }, { t: ST[r.st][0], color: ST[r.st][1], bold: true },
         { t: fa(r.tin), color: r.late ? "#c85f00" : null, bold: r.late }, { t: fa(r.tout) }];
       if (any2) cells.push({ t: shift2(r) });
@@ -571,7 +587,7 @@ async function decryptFile(url, pw) {
 const PWKEY = "qaem_pw_v1";
 async function unlock(pw) {
   const data = JSON.parse(new TextDecoder().decode(await decryptFile("members.enc", pw)));
-  PASS = pw; CIRCLES = data.circles; MEMBERS = data.members;
+  PASS = pw; CIRCLES = data.circles; MEMBERS = data.members; LEADERS = data.leaders || [];
   try { localStorage.setItem(PWKEY, pw); } catch (e) {}
   fillLists(data.units);
   $("lock").classList.add("hidden");
