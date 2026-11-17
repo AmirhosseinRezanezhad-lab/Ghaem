@@ -13,6 +13,14 @@
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--tx); font:17px/1.6 "BN","B Nazanin",Tahoma,sans-serif; }
   header { background:var(--pri); color:#fff; padding:10px 16px; font-weight:700; font-size:19px; }
+  header { position:relative; }
+  #back { position:absolute; left:10px; top:50%; transform:translateY(-50%); background:rgba(255,255,255,.15); color:#fff; border:1px solid rgba(255,255,255,.5); font-size:15px; padding:4px 10px; }
+  .prog { display:flex; align-items:center; gap:8px; border:1px solid var(--bd); border-radius:10px; padding:9px 10px; margin-top:8px; cursor:pointer; }
+  .prog:active { background:#e6f2f1; }
+  .prog .pi { flex:1; min-width:0; }
+  .prog .pt { font-weight:700; }
+  .prog .ps { font-size:14px; color:var(--mut); }
+  .prog.draft { border-color:#e8c97a; background:#fffcf2; }
   header small { display:block; font-weight:400; opacity:.85; font-size:13px; }
   main { padding:12px 12px 96px; max-width:720px; margin:auto; }
   .card { background:var(--card); border:1px solid var(--bd); border-radius:12px; padding:12px; margin-bottom:12px; }
@@ -51,7 +59,9 @@
   .st button.leave.on { background:var(--leave); border-color:var(--leave); }
   .tm { display:grid; grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr) auto; gap:4px 6px; align-items:center; margin-top:6px; font-size:14px; color:var(--mut); }
   .tm input { padding:3px 4px; font-size:15px; min-width:0; }
-  .add2 { display:block; margin-top:6px; font-size:14px; padding:3px 10px; color:var(--pri); border-color:var(--pri); }
+  .tools { display:flex; gap:6px; margin-top:6px; }
+  .add2 { font-size:14px; padding:3px 10px; color:var(--pri); border-color:var(--pri); }
+  .note input { margin-top:6px; padding:4px 8px; font-size:15px; }
   input, select { min-width:0; }
   html, body { overflow-x:hidden; }
   details { margin-top:10px; } summary { cursor:pointer; color:var(--abs); font-weight:700; }
@@ -72,8 +82,14 @@
   <input id="lockPw" type="password" autocomplete="current-password" dir="ltr" placeholder="رمز">
   <button class="btn" id="lockBtn">ورود</button><div id="lockErr"></div></div></div>
 
-<header>حضور و غیاب قرارگاه<small>واحد سرمایه انسانی</small></header>
-<main>
+<header><button id="back" class="hidden">→ برنامه‌ها</button>حضور و غیاب قرارگاه<small>واحد سرمایه انسانی</small></header>
+<main id="home" class="hidden">
+  <button class="btn" id="hNew">➕ ثبت برنامه جدید</button>
+  <div class="card" style="margin-top:12px"><h3>برنامه‌های ثبت‌شده</h3>
+    <p class="counts">📝 ذخیره‌شده (هنوز ثبت نهایی نشده) · ✅ ثبت نهایی شده — برای ویرایش روی برنامه بزنید.</p>
+    <div id="hList"></div></div>
+</main>
+<main id="editor" class="hidden">
   <div class="card" id="cardInfo">
     <h3>۱. مشخصات برنامه</h3>
     <label>نام برنامه</label><input id="pName" placeholder="مثلاً جلسه هفتگی">
@@ -109,11 +125,11 @@
     <button class="btn sec" id="oSaveImg">⬇️ ذخیره عکس روی گوشی</button>
     <button class="btn sec" id="oSaveCsv">⬇️ ذخیره فایل CSV</button>
     <div id="shots"></div>
-    <button class="btn sec" id="oNew">🆕 شروع برنامه جدید</button>
+    <button class="btn sec" id="oHome">↩️ بازگشت به برنامه‌ها</button>
   </div>
-  <details><summary class="counts" style="color:var(--mut)">گزارش فنی</summary><div id="log"></div></details>
 </main>
-<div class="bar">
+<details style="padding:0 12px 90px"><summary class="counts" style="color:var(--mut)">گزارش فنی</summary><div id="log"></div></details>
+<div class="bar hidden" id="bar">
   <button class="btn sec" id="saveDraft">💾 ذخیره اطلاعات</button>
   <button class="btn" id="final">✔️ ثبت نهایی</button>
 </div>
@@ -201,12 +217,16 @@ function render() {
       <button class="x" data-a="del" title="حذف">✖</button></div>`;
     if (mand && !e.guest) h += `<div class="st"><button class="pres${e.st === "pres" ? " on" : ""}" data-a="pres">حاضر</button>
       <button class="leave${e.st === "leave" ? " on" : ""}" data-a="leave">مرخصی</button></div>`;
+    let tools = "";
     if (!leave) {
       h += `<div class="tm">ورود<input type="time" data-t="tin" value="${e.tin || start}">خروج<input type="time" data-t="tout" value="${e.tout || end}"><span></span></div>`;
       if (e.two) h += `<div class="tm">ورود ۲<input type="time" data-t="tin2" value="${e.tin2}">خروج ۲<input type="time" data-t="tout2" value="${e.tout2}">
         <button class="x" data-a="one" title="حذف نوبت دوم">✖</button></div>`;
-      else h += '<button class="add2" data-a="two">➕ نوبت دوم</button>';
+      else tools += '<button class="add2" data-a="two">➕ نوبت دوم</button>';
     }
+    if (e.noteOpen || e.note) h += `<div class="note"><input data-t="note" placeholder="توضیح برای ${esc(e.name)}" value="${esc(e.note || "")}"></div>`;
+    else tools += '<button class="add2" data-a="note">📝 توضیح</button>';
+    if (tools) h += `<div class="tools">${tools}</div>`;
     d.innerHTML = h;
     d.onclick = (ev) => {
       const a = ev.target.dataset.a; if (!a) return;
@@ -214,12 +234,14 @@ function render() {
       else if (a === "pres" || a === "leave") e.st = a;
       else if (a === "two") { e.two = true; e.tin2 = e.tin2 || e.tout || end; }
       else if (a === "one") { e.two = false; e.tin2 = e.tout2 = ""; }
+      else if (a === "note") { e.noteOpen = true; render(); const n = box.children[i].querySelector("[data-t=note]"); if (n) n.focus(); return; }
       render();
     };
     d.querySelectorAll("input").forEach((inp) => inp.onchange = () => {
-      const t = inp.dataset.t; e[t] = inp.value;
+      const t = inp.dataset.t; e[t] = t === "note" ? inp.value.trim() : inp.value;
       if ((t === "tin" && inp.value === start) || (t === "tout" && inp.value === end)) e[t] = "";   // = program time
     });
+    const ni = d.querySelector("[data-t=note]"); if (ni) ni.oninput = ni.onchange;
     box.appendChild(d);
   });
   const abs = absentMembers();
@@ -240,10 +262,10 @@ function rowsForOutput() {
   const rows = [];
   state.entries.filter((e) => !e.guest).forEach((e) => {
     if (!mand && e.st !== "pres") return;
-    rows.push({ n: e.name, c: e.c, kind: e.kind, st: e.st, ...(e.st === "pres" ? times(e, start, end) : { tin: "", tout: "", tin2: "", tout2: "" }) });
+    rows.push({ n: e.name, c: e.c, kind: e.kind, st: e.st, note: e.note || "", ...(e.st === "pres" ? times(e, start, end) : { tin: "", tout: "", tin2: "", tout2: "" }) });
   });
-  absentMembers().forEach(([n, c, kind]) => rows.push({ n, c, kind, st: "abs", tin: "", tout: "", tin2: "", tout2: "" }));
-  const guests = state.entries.filter((e) => e.guest).reverse().map((e) => ({ n: e.name, c: -1, kind: "مهمان", st: "pres", ...times(e, start, end) }));
+  absentMembers().forEach(([n, c, kind]) => rows.push({ n, c, kind, st: "abs", note: "", tin: "", tout: "", tin2: "", tout2: "" }));
+  const guests = state.entries.filter((e) => e.guest).reverse().map((e) => ({ n: e.name, c: -1, kind: "مهمان", st: "pres", note: e.note || "", ...times(e, start, end) }));
   return { rows, guests };
 }
 function times(e, start, end) { return { tin: e.tin || start, tout: e.tout || end, tin2: e.two ? e.tin2 : "", tout2: e.two ? e.tout2 : "" }; }
@@ -260,7 +282,7 @@ function csvText() {
   const saved = `${now.getFullYear()}-${p2(now.getMonth() + 1)}-${p2(now.getDate())} ${p2(now.getHours())}:${p2(now.getMinutes())}:${p2(now.getSeconds())}`;
   const head = [state.id, $("pName").value.trim(), $("pUnit").value, en($("pDate").value.trim()), $("pStart").value, $("pEnd").value,
     state.type === "m" ? "اجباری" : "اختیاری", state.circle < 0 ? "" : CIRCLES[state.circle], $("pDesc").value.trim()];
-  const all = rows.concat(guests).map((r) => head.concat([r.n, r.c >= 0 ? CIRCLES[r.c] : "", r.kind, STATUS[r.st], r.tin, r.tout, r.tin2, r.tout2, "", saved]));
+  const all = rows.concat(guests).map((r) => head.concat([r.n, r.c >= 0 ? CIRCLES[r.c] : "", r.kind, STATUS[r.st], r.tin, r.tout, r.tin2, r.tout2, r.note, saved]));
   if (!all.length) all.push(head.concat(["", "", "", "", "", "", "", "", "", saved]));
   const q = (v) => /[",\n\r]/.test(v) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v);
   return [CSV_HEADER].concat(all).map((r) => r.map(q).join(",")).join("\r\n") + "\r\n";
@@ -269,25 +291,76 @@ function baseName() {
   return `${en($("pDate").value.trim()).replace(/\//g, "-")} - ${$("pName").value.trim()} (${state.id.slice(0, 6)})`.replace(/[\\/:*?"<>|]/g, "-");
 }
 
-// ---------- draft on this phone ----------
-const DKEY = "qaem_draft_v2";
+// ---------- programs saved on this phone ----------
+const PKEY = "qaem_programs_v1";
+let openedJson = "";
 function snapshot() { return { state, form: FORM_IDS.map((id) => $(id).value) }; }
 function applySnapshot(d) { state = d.state; FORM_IDS.forEach((id, i) => { if (d.form[i] !== undefined) $(id).value = d.form[i]; }); showForm(); }
-$("saveDraft").onclick = () => {
-  try { localStorage.setItem(DKEY, JSON.stringify(snapshot())); toast("💾 اطلاعات روی همین گوشی ذخیره شد. هر وقت مینی‌اپ را باز کنید، از همین‌جا ادامه می‌دهید."); }
-  catch (e) { toast("ذخیره نشد: " + e.message); }
-};
-function restoreDraft() {
-  $("pDate").value = today();
-  try { const d = JSON.parse(localStorage.getItem(DKEY) || "null"); if (d && d.state && d.state.entries) { applySnapshot(d); log("draft restored"); return; } } catch (e) {}
-  showForm();
+function loadProgs() { try { return JSON.parse(localStorage.getItem(PKEY) || "{}"); } catch (e) { return {}; } }
+function saveProgs(p) { localStorage.setItem(PKEY, JSON.stringify(p)); }
+function storeCurrent(final) {
+  const p = loadProgs();
+  p[state.id] = Object.assign(snapshot(), { savedAt: Date.now(), final });
+  saveProgs(p); openedJson = JSON.stringify(snapshot());
 }
-$("oNew").onclick = () => {
-  if (!confirm("اطلاعات این برنامه از فرم پاک شود و برنامه جدید شروع شود؟")) return;
-  try { localStorage.removeItem(DKEY); } catch (e) {}
-  state = newState(); FORM_IDS.forEach((id) => { if (id !== "pUnit" && id !== "pStart" && id !== "pEnd") $(id).value = ""; });
-  $("pDate").value = today(); pics = []; $("outCard").classList.add("hidden"); showForm(); window.scrollTo(0, 0);
+function view(name) {
+  ["home", "editor"].forEach((v) => $(v).classList.toggle("hidden", v !== name));
+  $("bar").classList.toggle("hidden", name !== "editor" || FROM_LINK);
+  $("back").classList.toggle("hidden", name !== "editor" || FROM_LINK);
+  window.scrollTo(0, 0);
+}
+function showHome() {
+  const p = loadProgs(), box = $("hList"); box.innerHTML = "";
+  const items = Object.entries(p).sort(([, a], [, b]) => (a.final - b.final) || (b.savedAt - a.savedAt));
+  if (!items.length) box.innerHTML = '<p class="counts">هنوز برنامه‌ای ثبت نشده است.</p>';
+  items.forEach(([id, d]) => {
+    const st = d.state, f = d.form, n = st.entries.filter((e) => !e.guest && e.st === "pres").length + st.entries.filter((e) => e.guest).length;
+    const el = document.createElement("div");
+    el.className = "prog" + (d.final ? "" : " draft");
+    el.innerHTML = `<span>${d.final ? "✅" : "📝"}</span><div class="pi"><div class="pt">${esc(f[0] || "بدون نام")}</div>
+      <div class="ps">${esc(fa(f[2] || ""))} · ${esc(f[1] || "")} · ${st.type === "m" ? "اجباری" : "اختیاری"} · ${fa(n)} نفر ثبت‌شده</div></div>
+      <button class="x" title="حذف">🗑</button>`;
+    el.onclick = (ev) => {
+      if (ev.target.classList.contains("x")) {
+        if (confirm(`برنامه «${f[0] || ""}» از این گوشی حذف شود؟`)) { delete p[id]; saveProgs(p); showHome(); }
+        return;
+      }
+      openProgram(d);
+    };
+    box.appendChild(el);
+  });
+  view("home");
+}
+function openProgram(d) {
+  pics = []; $("outCard").classList.add("hidden"); $("search").value = ""; $("sugg").innerHTML = "";
+  if (d) applySnapshot(JSON.parse(JSON.stringify(d)));
+  else {
+    state = newState();
+    ["pName", "pDesc"].forEach((id) => $(id).value = "");
+    $("pDate").value = today(); $("pStart").value = "20:00"; $("pEnd").value = "22:00"; $("pUnit").selectedIndex = 0;
+    showForm();
+  }
+  openedJson = JSON.stringify(snapshot());
+  view("editor");
+}
+$("hNew").onclick = () => openProgram(null);
+$("back").onclick = () => {
+  if (JSON.stringify(snapshot()) !== openedJson && !confirm("تغییرات ذخیره نشده‌اند. بدون ذخیره برگردید؟")) return;
+  showHome();
 };
+$("oHome").onclick = showHome;
+$("saveDraft").onclick = () => {
+  try { storeCurrent(false); } catch (e) { toast("ذخیره نشد: " + e.message); return; }
+  toast("✅ اطلاعات با موفقیت ذخیره شد");
+  showHome();
+};
+function migrateOld() {   // the single draft of the previous version
+  try {
+    const d = JSON.parse(localStorage.getItem("qaem_draft_v2") || "null");
+    if (d && d.state && d.state.entries && d.state.entries.length) { const p = loadProgs(); p[d.state.id] = Object.assign(d, { savedAt: Date.now(), final: false }); saveProgs(p); }
+    localStorage.removeItem("qaem_draft_v2");
+  } catch (e) {}
+}
 
 // ---------- final ----------
 $("final").onclick = async () => {
@@ -295,7 +368,7 @@ $("final").onclick = async () => {
   if (!/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(en($("pDate").value.trim()))) { toast("تاریخ را به شکل ۱۴۰۵/۰۸/۲۶ بنویسید"); $("pDate").focus(); return; }
   const c = counts();
   if (!FROM_LINK && !confirm(`ثبت نهایی «${$("pName").value.trim()}»؟\nحاضر ${fa(c.pres)}` + (state.type === "m" ? ` · مرخصی ${fa(c.leave)} · غایب ${fa(c.abs)}` : "") + ` · مهمان ${fa(c.guest)}`)) return;
-  try { localStorage.setItem(DKEY, JSON.stringify(snapshot())); } catch (e) {}
+  if (!FROM_LINK) { try { storeCurrent(true); } catch (e) {} }
   $("final").disabled = true; $("final").textContent = "⏳ در حال ساخت عکس…";
   try { pics = await makeImages(); } catch (e) { log("image FAILED: " + e); toast("ساخت عکس انجام نشد: " + e.message); }
   $("final").disabled = false; $("final").textContent = "✔️ ثبت نهایی";
@@ -308,6 +381,7 @@ $("final").onclick = async () => {
   $("outHint").textContent = inBale
     ? "بله اجازه ذخیره یا ارسال فایل نمی‌دهد؛ دکمه زیر همین صفحه را در مرورگر گوشی (Chrome) باز می‌کند. آنجا «ارسال عکس و CSV در بله» را بزنید و چت ربات را انتخاب کنید."
     : "«ارسال عکس و CSV در بله» را بزنید، «بله» را انتخاب کنید و چت ربات (یا مدیر) را برگزینید.";
+  $("oHome").classList.toggle("hidden", FROM_LINK);
   $("outCard").classList.remove("hidden");
   $("outCard").scrollIntoView({ behavior: "smooth" });
 };
@@ -375,6 +449,8 @@ async function makeImages() {
     if (LH) x.drawImage(LH, 0, 0, PW, PH);
     y = BOX.top;
   }
+  function fit(t, w) { x.font = F(27); if (x.measureText(t).width <= w) return t;
+    while (t.length > 1 && x.measureText(t + "…").width > w) t = t.slice(0, -1); return t + "…"; }
   function text(t, px, cy, font, color, align) { x.font = font; x.fillStyle = color; x.textAlign = align; x.fillText(t, px, cy); }
   function rrect(x0, y0, w, h, r, fill, stroke, lw) {
     x.beginPath(); x.roundRect(x0, y0, w, h, r);
@@ -461,6 +537,9 @@ async function makeImages() {
     if (g2) cols.push(["نوبت دوم", 0.19]);
     table("مهمانان", cols, guests.map((r, i) => ({ cells: [{ t: fa(i + 1) }, { t: r.n }, { t: fa(r.tin) }, { t: fa(r.tout) }].concat(g2 ? [{ t: shift2(r) }] : []) })));
   }
+  const noted = rows.concat(guests).filter((r) => r.note);
+  if (noted.length) table("توضیحات افراد", [["ردیف", 0.07], ["نام و نام خانوادگی", 0.3], ["توضیح", null]],
+    noted.map((r, i) => ({ cells: [{ t: fa(i + 1) }, { t: r.n }, { t: fit(r.note, 0.63 * WD - 20 * S) }] })));
   const desc = $("pDesc").value.trim();
   if (desc) { if (y + 40 * S > BOTTOM) newPage(); text("توضیحات: " + desc, R, y + 14 * S, F(25), INK, "right"); y += 44 * S; }
   if (y + 30 * S > BOTTOM) newPage();
@@ -508,7 +587,7 @@ async function boot() {
   if (!pw) { try { pw = localStorage.getItem(PWKEY) || ""; } catch (e) { pw = ""; } }
   const go = async (p) => {
     await unlock(p);
-    if (hashData) { FROM_LINK = true; applySnapshot(hashData); $("final").click(); } else restoreDraft();
+    if (hashData) { FROM_LINK = true; applySnapshot(hashData); view("editor"); $("final").click(); } else { migrateOld(); showHome(); }
   };
   if (pw) { try { await go(pw); return; } catch (e) { log("saved password: " + e.message); } }
   $("lock").classList.remove("hidden");
