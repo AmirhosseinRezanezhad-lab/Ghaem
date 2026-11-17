@@ -168,6 +168,7 @@ function fillLists(units) {
   $("pCircle").add(new Option("همه حلقه‌ها", -1));
   UNITS = units;
 }
+function circName(c, n) { return LEADERS.includes(n) ? "فرماندهی" : (CIRCLES[c] || ""); }
 function selUnits() { return $("pUnit").value.split(/[،,]/).map((x) => x.trim()).filter(Boolean); }
 function renderUnits() {
   const sel = selUnits(), box = $("unitChips"); box.innerHTML = "";
@@ -198,7 +199,7 @@ $("search").oninput = () => {
       || (state.circle >= 0 ? (a[1] !== state.circle) - (b[1] !== state.circle) : 0)).slice(0, 7);
   hits.forEach(([n, c, kind]) => {
     const d = document.createElement("div");
-    d.innerHTML = `<span>${esc(n)}</span><span class="tag">${esc((CIRCLES[c] || "").replace("حلقه ", ""))}</span>`;
+    d.innerHTML = `<span>${esc(n)}</span><span class="tag">${esc(circName(c, n).replace("حلقه ", ""))}</span>`;
     d.onclick = () => add({ name: n, guest: false, kind, c });
     box.appendChild(d);
   });
@@ -225,7 +226,7 @@ function render() {
     const leave = mand && e.st === "leave";
     d.className = "ent" + (e.guest ? " guest" : "") + (leave ? " leave" : "") + (e.fresh ? " fresh" : "");
     e.fresh = false;
-    const tag = e.guest ? "مهمان" : (CIRCLES[e.c] || "").replace("حلقه ", "") + (e.kind && e.kind !== "رسمی" ? " · " + e.kind : "");
+    const tag = e.guest ? "مهمان" : circName(e.c, e.name).replace("حلقه ", "") + (e.kind && e.kind !== "رسمی" ? " · " + e.kind : "");
     let h = `<div class="ehead"><b>${esc(e.name)}</b><span class="tag"${e.guest ? ' style="color:var(--guest)"' : ""}>${esc(tag)}</span>
       <button class="x" data-a="del" title="حذف">✖</button></div>`;
     if (mand && !e.guest) h += `<div class="st"><button class="pres${e.st === "pres" ? " on" : ""}" data-a="pres">حاضر</button>
@@ -295,7 +296,7 @@ function csvText() {
   const saved = `${now.getFullYear()}-${p2(now.getMonth() + 1)}-${p2(now.getDate())} ${p2(now.getHours())}:${p2(now.getMinutes())}:${p2(now.getSeconds())}`;
   const head = [state.id, $("pName").value.trim(), $("pUnit").value, en($("pDate").value.trim()), $("pStart").value, $("pEnd").value,
     state.type === "m" ? "اجباری" : "اختیاری", state.circle < 0 ? "" : CIRCLES[state.circle], $("pDesc").value.trim()];
-  const all = rows.concat(guests).map((r) => head.concat([r.n, r.c >= 0 ? CIRCLES[r.c] : "", r.kind, STATUS[r.st], r.tin, r.tout, r.tin2, r.tout2, r.note, saved]));
+  const all = rows.concat(guests).map((r) => head.concat([r.n, r.kind === "مهمان" ? "" : circName(r.c, r.n), r.kind, STATUS[r.st], r.tin, r.tout, r.tin2, r.tout2, r.note, saved]));
   if (!all.length) all.push(head.concat(["", "", "", "", "", "", "", "", "", saved]));
   const q = (v) => /[",\n\r]/.test(v) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v);
   return [CSV_HEADER].concat(all).map((r) => r.map(q).join(",")).join("\r\n") + "\r\n";
@@ -452,7 +453,7 @@ async function makeImages() {
   rows.forEach((r) => {
     r.late = r.st === "pres" && st0 !== null && toMin(r.tin) > st0 + 10;
     cnt[r.st]++; if (r.late) cnt.late++;
-    const g = r.st === "pres" && LEADERS.includes(r.n) ? -100 : r.c;     // present commanders head the list
+    const g = LEADERS.includes(r.n) ? -100 : r.c;     // commanders (no circle) head the list
     if (!groups.has(g)) groups.set(g, []); groups.get(g).push(r);
   });
   const L = BOX.side, R = PW - BOX.side, WD = R - L, BOTTOM = PH - BOX.bottom;
@@ -464,7 +465,7 @@ async function makeImages() {
     if (LH) x.drawImage(LH, 0, 0, PW, PH);
     y = BOX.top;
   }
-  function fit(t, w) { x.font = F(27); if (x.measureText(t).width <= w) return t;
+  function fitTo(t, w, font) { x.font = font; if (x.measureText(t).width <= w) return t;
     while (t.length > 1 && x.measureText(t + "…").width > w) t = t.slice(0, -1); return t + "…"; }
   function text(t, px, cy, font, color, align) { x.font = font; x.fillStyle = color; x.textAlign = align; x.fillText(t, px, cy); }
   function rrect(x0, y0, w, h, r, fill, stroke, lw) {
@@ -526,6 +527,11 @@ async function makeImages() {
         x.strokeStyle = "#c5d9db"; x.lineWidth = S; x.strokeRect(cx - widths[i], y, widths[i], RH);
         const name = i === 1;
         text(c.t, name ? cx - 10 * S : cx - widths[i] / 2, y + RH / 2 + S, F(27, name || !!c.bold), c.color || r.color || INK, name ? "right" : "center");
+        if (name && r.note) {
+          x.font = F(27, true); const nw = x.measureText(c.t).width;
+          const room = widths[i] - nw - 30 * S;
+          if (room > 40 * S) text("(" + fitTo(r.note, room - 12 * S, F(22)) + ")", cx - 10 * S - nw - 10 * S, y + RH / 2 + 2 * S, F(22), "#5b6b75", "right");
+        }
         cx -= widths[i];
       });
       y += RH;
@@ -544,18 +550,15 @@ async function makeImages() {
       const cells = [{ t: fa(i + 1) }, { t: r.n }, { t: r.kind }, { t: ST[r.st][0], color: ST[r.st][1], bold: true },
         { t: fa(r.tin), color: r.late ? "#c85f00" : null, bold: r.late }, { t: fa(r.tout) }];
       if (any2) cells.push({ t: shift2(r) });
-      return { bg: r.st === "leave" ? "#fffaf0" : r.st === "abs" ? "#fdf1f2" : "#fff", color: r.st === "abs" ? "#8a1520" : null, cells };
+      return { note: r.note, bg: r.st === "leave" ? "#fffaf0" : r.st === "abs" ? "#fdf1f2" : "#fff", color: r.st === "abs" ? "#8a1520" : null, cells };
     }));
   });
   if (guests.length) {
     const g2 = guests.some((r) => r.tin2 || r.tout2);
     const cols = [["ردیف", 0.07], ["نام و نام خانوادگی", null], ["ورود", 0.12], ["خروج", 0.12]];
     if (g2) cols.push(["نوبت دوم", 0.19]);
-    table("مهمانان", cols, guests.map((r, i) => ({ cells: [{ t: fa(i + 1) }, { t: r.n }, { t: fa(r.tin) }, { t: fa(r.tout) }].concat(g2 ? [{ t: shift2(r) }] : []) })));
+    table("مهمانان", cols, guests.map((r, i) => ({ note: r.note, cells: [{ t: fa(i + 1) }, { t: r.n }, { t: fa(r.tin) }, { t: fa(r.tout) }].concat(g2 ? [{ t: shift2(r) }] : []) })));
   }
-  const noted = rows.concat(guests).filter((r) => r.note);
-  if (noted.length) table("توضیحات افراد", [["ردیف", 0.07], ["نام و نام خانوادگی", 0.3], ["توضیح", null]],
-    noted.map((r, i) => ({ cells: [{ t: fa(i + 1) }, { t: r.n }, { t: fit(r.note, 0.63 * WD - 20 * S) }] })));
   const desc = $("pDesc").value.trim();
   if (desc) { if (y + 40 * S > BOTTOM) newPage(); text("توضیحات: " + desc, R, y + 14 * S, F(25), INK, "right"); y += 44 * S; }
   if (y + 30 * S > BOTTOM) newPage();
