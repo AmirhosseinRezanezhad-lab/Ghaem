@@ -233,7 +233,9 @@ function render() {
       <button class="leave${e.st === "leave" ? " on" : ""}" data-a="leave">مرخصی</button></div>`;
     let tools = "";
     if (!leave) {
-      h += `<div class="tm">ورود<input type="time" data-t="tin" value="${e.tin || start}">خروج<input type="time" data-t="tout" value="${e.tout || end}"><span></span></div>`;
+      const dIn = e.guest ? e.tin : (e.tin || start), dOut = e.guest ? e.tout : (e.tout || end);
+      h += `<div class="tm">ورود<input type="time" data-t="tin" value="${dIn}">خروج<input type="time" data-t="tout" value="${dOut}"><span></span></div>`;
+      if (e.guest && !e.tin && !e.tout) h += '<div class="counts">ساعت مهمان اختیاری است</div>';
       if (e.two) h += `<div class="tm">ورود ۲<input type="time" data-t="tin2" value="${e.tin2}">خروج ۲<input type="time" data-t="tout2" value="${e.tout2}">
         <button class="x" data-a="one" title="حذف نوبت دوم">✖</button></div>`;
       else tools += '<button class="add2" data-a="two">➕ نوبت دوم</button>';
@@ -253,7 +255,7 @@ function render() {
     };
     d.querySelectorAll("input").forEach((inp) => inp.onchange = () => {
       const t = inp.dataset.t; e[t] = t === "note" ? inp.value.trim() : inp.value;
-      if ((t === "tin" && inp.value === start) || (t === "tout" && inp.value === end)) e[t] = "";   // = program time
+      if (!e.guest && ((t === "tin" && inp.value === start) || (t === "tout" && inp.value === end))) e[t] = "";   // = program time
     });
     const ni = d.querySelector("[data-t=note]"); if (ni) ni.oninput = ni.onchange;
     box.appendChild(d);
@@ -282,7 +284,9 @@ function rowsForOutput() {
   const guests = state.entries.filter((e) => e.guest).reverse().map((e) => ({ n: e.name, c: -1, kind: "مهمان", st: "pres", note: e.note || "", ...times(e, start, end) }));
   return { rows, guests };
 }
-function times(e, start, end) { return { tin: e.tin || start, tout: e.tout || end, tin2: e.two ? e.tin2 : "", tout2: e.two ? e.tout2 : "" }; }
+function times(e, start, end) {
+  if (e.guest) return { tin: e.tin || "", tout: e.tout || "", tin2: e.two ? e.tin2 : "", tout2: e.two ? e.tout2 : "" };
+  return { tin: e.tin || start, tout: e.tout || end, tin2: e.two ? e.tin2 : "", tout2: e.two ? e.tout2 : "" }; }
 function counts() {
   const { rows, guests } = rowsForOutput(), c = { pres: 0, leave: 0, abs: 0, guest: guests.length };
   rows.forEach((r) => c[r.st]++); return c;
