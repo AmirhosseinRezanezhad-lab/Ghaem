@@ -4,251 +4,368 @@
 <script src="https://tapi.bale.ai/miniapp.js"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>حضور و غیاب قرارگاه (آزمایشی)</title>
+<title>حضور و غیاب قرارگاه</title>
 <style>
-  @font-face { font-family: "Vazirmatn"; font-display: swap;
-    src: url("https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn[wght].woff2") format("woff2"); }
+  @font-face { font-family: "BN"; src: url("BNazanin.ttf"); }
+  @font-face { font-family: "BN"; src: url("BNazaninBold.ttf"); font-weight: 700; }
   :root { --bg:#f4f6f8; --card:#fff; --tx:#1d2a33; --mut:#6b7a86; --pri:#0f766e; --bd:#dde3e8;
-          --pres:#15803d; --leave:#b45309; --abs:#b91c1c; --guest:#6d28d9; }
+          --pres:#15803d; --leave:#b45309; --abs:#b91c1c; --guest:#2850a0; }
   * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--tx); font:15px/1.7 "B Nazanin","Vazirmatn",Tahoma,sans-serif; }
-  header { background:var(--pri); color:#fff; padding:12px 16px; font-weight:700; font-size:17px; }
-  header small { display:block; font-weight:400; opacity:.85; font-size:12px; }
-  main { padding:12px 12px 90px; max-width:720px; margin:auto; }
+  body { margin:0; background:var(--bg); color:var(--tx); font:17px/1.6 "BN","B Nazanin",Tahoma,sans-serif; }
+  header { background:var(--pri); color:#fff; padding:10px 16px; font-weight:700; font-size:19px; }
+  header small { display:block; font-weight:400; opacity:.85; font-size:13px; }
+  main { padding:12px 12px 96px; max-width:720px; margin:auto; }
   .card { background:var(--card); border:1px solid var(--bd); border-radius:12px; padding:12px; margin-bottom:12px; }
-  .card h3 { margin:0 0 8px; font-size:15px; }
-  label { display:block; font-size:13px; color:var(--mut); margin-top:6px; }
-  input, select { width:100%; font:inherit; padding:8px 10px; border:1px solid var(--bd); border-radius:8px; background:#fff; color:var(--tx); }
-  .row { display:flex; gap:8px; } .row > * { flex:1; }
+  .card h3 { margin:0 0 6px; font-size:17px; }
+  label { display:block; font-size:14px; color:var(--mut); margin-top:6px; }
+  input, select { width:100%; font:inherit; padding:7px 10px; border:1px solid var(--bd); border-radius:8px; background:#fff; color:var(--tx); }
+  .row { display:flex; gap:8px; } .row > * { flex:1; min-width:0; }
   .seg { display:flex; gap:6px; margin-top:4px; } .seg button { flex:1; }
-  button { font:inherit; border:1px solid var(--bd); background:#fff; border-radius:8px; padding:8px; cursor:pointer; color:var(--tx); }
+  button { font:inherit; border:1px solid var(--bd); background:#fff; border-radius:8px; padding:7px; cursor:pointer; color:var(--tx); }
   button.on { background:var(--pri); color:#fff; border-color:var(--pri); }
   .btn { background:var(--pri); color:#fff; border:none; font-weight:700; padding:11px; width:100%; margin-top:8px; }
   .btn.sec { background:#fff; color:var(--pri); border:1px solid var(--pri); }
-  .person { border-top:1px solid var(--bd); padding:8px 0; }
-  .person:first-child { border-top:none; }
-  .pname { font-weight:700; display:flex; justify-content:space-between; align-items:center; }
-  .tag { font-size:11px; padding:0 8px; border-radius:10px; background:#eef2f5; color:var(--mut); font-weight:400; }
-  .st { display:flex; gap:4px; margin-top:4px; } .st button { flex:1; padding:5px; font-size:13px; }
+  .counts { font-size:14px; color:var(--mut); }
+  .hidden { display:none !important; }
+
+  /* search */
+  .search { position:relative; }
+  #search { font-size:18px; padding:10px 12px; border:2px solid var(--pri); }
+  #sugg { border:1px solid var(--bd); border-radius:8px; margin-top:4px; overflow:hidden; }
+  #sugg:empty { display:none; }
+  #sugg div { padding:9px 12px; border-top:1px solid var(--bd); display:flex; justify-content:space-between; cursor:pointer; }
+  #sugg div:first-child { border-top:none; }
+  #sugg div:active { background:#e6f2f1; }
+  #sugg .g { color:var(--guest); font-weight:700; }
+
+  /* entries */
+  .ent { border:1px solid var(--bd); border-radius:10px; padding:8px 10px; margin-top:8px; }
+  .ent.leave { background:#fffaf0; } .ent.guest { background:#f3f7fd; }
+  .ent.fresh { animation: fl 1.2s; } @keyframes fl { from { background:#d9f2ee; } }
+  .ehead { display:flex; align-items:center; gap:6px; }
+  .ehead b { flex:1; }
+  .tag { font-size:12px; padding:0 8px; border-radius:10px; background:#eef2f5; color:var(--mut); white-space:nowrap; }
+  .x { border:none; background:none; color:var(--abs); font-size:18px; padding:0 4px; }
+  .st { display:flex; gap:4px; margin-top:6px; } .st button { flex:1; padding:4px; font-size:15px; }
   .st button.pres.on { background:var(--pres); border-color:var(--pres); }
   .st button.leave.on { background:var(--leave); border-color:var(--leave); }
-  .st button.abs.on { background:var(--abs); border-color:var(--abs); }
-  .times { display:flex; gap:6px; margin-top:4px; } .times input { padding:4px 6px; }
-  .hidden { display:none !important; }
+  .tm { display:grid; grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr) auto; gap:4px 6px; align-items:center; margin-top:6px; font-size:14px; color:var(--mut); }
+  .tm input { padding:3px 4px; font-size:15px; min-width:0; }
+  .add2 { display:block; margin-top:6px; font-size:14px; padding:3px 10px; color:var(--pri); border-color:var(--pri); }
+  input, select { min-width:0; }
+  html, body { overflow-x:hidden; }
+  details { margin-top:10px; } summary { cursor:pointer; color:var(--abs); font-weight:700; }
+  #absList { font-size:15px; color:var(--mut); margin-top:4px; }
+
   #shots img { width:100%; border:1px solid var(--bd); border-radius:6px; margin-top:8px; }
-  #log { font-size:12px; white-space:pre-wrap; background:#0b1720; color:#cde; border-radius:8px; padding:8px; direction:ltr; text-align:left; max-height:220px; overflow:auto; }
+  #log { font-size:12px; white-space:pre-wrap; background:#0b1720; color:#cde; border-radius:8px; padding:8px; direction:ltr; text-align:left; max-height:200px; overflow:auto; }
   .bar { position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--bd); padding:8px 12px; display:flex; gap:8px; }
   .bar button { flex:1; margin:0; }
-  .counts { font-size:13px; color:var(--mut); }
   #lock { position:fixed; inset:0; background:var(--bg); z-index:9; display:flex; align-items:center; justify-content:center; padding:24px; }
   #lock .card { width:100%; max-width:360px; text-align:center; }
-  #lockErr { color:var(--abs); font-size:13px; min-height:20px; }
+  #lockErr { color:var(--abs); font-size:14px; min-height:20px; }
 </style>
 </head>
 <body>
-<div id="lock" class="hidden"><div class="card"><h3>🔒 حضور و غیاب قرارگاه</h3><p class="counts">رمز مینی‌اپ را وارد کنید (فقط بار اول)</p><input id="lockPw" type="password" autocomplete="current-password" dir="ltr" placeholder="رمز"><button class="btn" id="lockBtn">ورود</button><div id="lockErr"></div></div></div>
-<header>حضور و غیاب قرارگاه — نسخه آزمایشی<small>واحد سرمایه انسانی</small></header>
+<div id="lock" class="hidden"><div class="card"><h3>🔒 حضور و غیاب قرارگاه</h3>
+  <p class="counts">رمز مینی‌اپ را وارد کنید (فقط بار اول)</p>
+  <input id="lockPw" type="password" autocomplete="current-password" dir="ltr" placeholder="رمز">
+  <button class="btn" id="lockBtn">ورود</button><div id="lockErr"></div></div></div>
+
+<header>حضور و غیاب قرارگاه<small>واحد سرمایه انسانی</small></header>
 <main>
-  <div class="card">
+  <div class="card" id="cardInfo">
     <h3>۱. مشخصات برنامه</h3>
-    <label>نام برنامه</label><input id="pName" value="جلسه آزمایشی">
+    <label>نام برنامه</label><input id="pName" placeholder="مثلاً جلسه هفتگی">
     <div class="row">
       <div><label>واحد</label><select id="pUnit"></select></div>
-      <div><label>تاریخ</label><input id="pDate" value="۱۴۰۵/۰۸/۲۶"></div>
+      <div><label>تاریخ</label><input id="pDate" inputmode="numeric" placeholder="۱۴۰۵/۰۸/۲۶"></div>
     </div>
     <div class="row">
       <div><label>ساعت شروع</label><input id="pStart" type="time" value="20:00"></div>
       <div><label>ساعت پایان</label><input id="pEnd" type="time" value="22:00"></div>
     </div>
-    <label>نوع برنامه</label>
-    <div class="seg" id="pType"><button data-v="m" class="on">اجباری</button><button data-v="o">اختیاری</button></div>
-    <label>حلقه</label>
-    <select id="pCircle"></select>
-  </div>
-
-  <div class="card">
-    <h3>۲. حضور و غیاب <span class="counts" id="counts"></span></h3>
-    <input id="search" placeholder="🔍 جست‌وجوی اسم…">
-    <div id="people"></div>
-    <div class="row" style="margin-top:8px">
-      <input id="guestName" placeholder="نام مهمان">
-      <button id="addGuest" style="flex:0 0 90px">➕ مهمان</button>
+    <div class="row">
+      <div><label>نوع برنامه</label>
+        <div class="seg" id="pType"><button data-v="m" class="on">اجباری</button><button data-v="o">اختیاری</button></div></div>
+      <div><label>حلقه مخاطب</label><select id="pCircle"></select></div>
     </div>
+    <label>توضیحات (اختیاری)</label><input id="pDesc">
   </div>
 
   <div class="card">
-    <h3>۳. خروجی (آزمایش روش‌های ارسال)</h3>
-    <div id="shots"></div>
-    <button class="btn sec" id="tDownload">۱) ذخیره عکس روی گوشی</button>
-    <button class="btn sec" id="tShare">۲) اشتراک‌گذاری عکس (ارسال در بله)</button>
-    <button class="btn sec" id="tCopy">۳) کپی متن CSV</button>
-    <button class="btn sec" id="tCsv">۴) ذخیره فایل CSV</button>
-    <button class="btn sec" id="tSend">۵) ارسال مستقیم به ربات (sendData)</button>
-    <button class="btn" id="tBrowser">۶) باز کردن در مرورگر گوشی و ذخیره عکس</button>
-    <button class="btn" id="tShareAll">۷) ارسال عکس + فایل CSV در چت بله (در Chrome)</button>
-    <p class="counts">بعد از امتحان هر دکمه، نتیجه را در کادر زیر می‌بینید. لطفاً از این کادر عکس بگیرید و بفرستید.</p>
-    <div id="log"></div>
+    <h3>۲. حاضرین <span class="counts" id="counts"></span></h3>
+    <div class="search"><input id="search" placeholder="🔍 نام را بنویسید و انتخاب کنید…" autocomplete="off"></div>
+    <div id="sugg"></div>
+    <div id="entries"></div>
+    <details id="absBox"><summary id="absSum"></summary><div id="absList"></div></details>
   </div>
+
+  <div class="card hidden" id="outCard">
+    <h3>۳. خروجی</h3>
+    <p class="counts" id="outHint"></p>
+    <button class="btn" id="oOpen">📤 ارسال عکس و CSV (باز شدن در مرورگر)</button>
+    <button class="btn" id="oShare">📤 ارسال عکس و CSV در بله</button>
+    <button class="btn sec" id="oSaveImg">⬇️ ذخیره عکس روی گوشی</button>
+    <button class="btn sec" id="oSaveCsv">⬇️ ذخیره فایل CSV</button>
+    <div id="shots"></div>
+    <button class="btn sec" id="oNew">🆕 شروع برنامه جدید</button>
+  </div>
+  <details><summary class="counts" style="color:var(--mut)">گزارش فنی</summary><div id="log"></div></details>
 </main>
 <div class="bar">
   <button class="btn sec" id="saveDraft">💾 ذخیره اطلاعات</button>
-  <button class="btn" id="final">✔️ ثبت نهایی و ساخت عکس</button>
+  <button class="btn" id="final">✔️ ثبت نهایی</button>
 </div>
 
 <script>
-(() => {   // own scope: the Bale SDK defines globals (e.g. W)
+(() => {   // own scope: the Bale SDK defines globals
 "use strict";
-// ---------- data: decrypted from members.enc after the password ----------
-let CIRCLES = [], MEMBERS = [], PASS = "";
-
-const STATUS = { pres: "حاضر", leave: "مرخصی", abs: "غایب" };
+let CIRCLES = [], MEMBERS = [], PASS = "";       // decrypted from members.enc after the password
 const $ = (id) => document.getElementById(id);
 const W = window.Bale && window.Bale.WebApp;
-let state = { type: "m", circle: -1, people: {}, guests: [] };
-let pngs = [];   // generated page blobs
+const STATUS = { pres: "حاضر", leave: "مرخصی", abs: "غایب" };
+const FORM_IDS = ["pName", "pUnit", "pDate", "pStart", "pEnd", "pDesc"];
+let state = newState();
+let pics = [], FROM_LINK = false;
 
+function newState() { return { id: rid(), type: "m", circle: -1, entries: [] }; }
+function rid() { return [...crypto.getRandomValues(new Uint8Array(6))].map((b) => b.toString(16).padStart(2, "0")).join(""); }
 function fa(x) { return String(x).replace(/[0-9]/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[d]); }
-function log(s) { $("log").textContent += s + "\n"; $("log").scrollTop = 1e9; }
+function en(x) { return String(x).replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d)); }
+function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function norm(s) { return String(s).replace(/[يى]/g, "ی").replace(/ك/g, "ک").replace(/[ًٌٍَُِّْ]/g, "").replace(/[‌\s]+/g, ""); }
+function log(s) { $("log").textContent += s + "\n"; }
+function toast(m) { if (W && W.showAlert) { try { W.showAlert(m); return; } catch (e) {} } alert(m); }
+function today() {
+  try { const p = new Intl.DateTimeFormat("fa-IR-u-ca-persian-nu-latn", { year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+    const g = (t) => (p.find((x) => x.type === t) || {}).value; return fa(g("year") + "/" + g("month") + "/" + g("day")); } catch (e) { return ""; }
+}
+log("Bale: " + (W ? "v" + W.version : "no") + " | share: " + !!navigator.canShare);
+if (W) { try { W.ready(); W.expand(); } catch (e) {} }
 
-// ---------- diagnostics ----------
-(function diag() {
-  log("Bale.WebApp: " + (W ? "yes, v" + W.version + (W.isIframe ? " (web)" : " (app)") : "NO (opened outside Bale)"));
-  log("navigator.share: " + !!navigator.share + " | canShare: " + !!navigator.canShare);
-  log("clipboard: " + !!(navigator.clipboard && navigator.clipboard.writeText));
-  log("UA: " + navigator.userAgent.slice(0, 110));
-  if (W) { try { W.ready(); W.expand(); } catch (e) { log("ready/expand: " + e); } }
-})();
-
-// ---------- form ----------
+// ---------- program details ----------
 function fillLists(units) {
   CIRCLES.forEach((c, i) => $("pCircle").add(new Option(c, i)));
   $("pCircle").add(new Option("همه حلقه‌ها", -1));
-  $("pCircle").value = -1;
   units.forEach((u) => $("pUnit").add(new Option(u, u)));
 }
-$("pType").onclick = (e) => {
-  if (!e.target.dataset.v) return;
-  state.type = e.target.dataset.v;
-  [...$("pType").children].forEach((b) => b.classList.toggle("on", b === e.target));
+function showForm() {
+  $("pCircle").value = state.circle;
+  [...$("pType").children].forEach((b) => b.classList.toggle("on", b.dataset.v === state.type));
   render();
-};
+}
+$("pType").onclick = (e) => { if (!e.target.dataset.v) return; state.type = e.target.dataset.v; showForm(); };
 $("pCircle").onchange = () => { state.circle = +$("pCircle").value; render(); };
-$("search").oninput = render;
+$("pStart").onchange = $("pEnd").onchange = render;
 
-function person(name) {
-  if (!state.people[name]) state.people[name] = { st: state.type === "m" ? "abs" : "", tin: "", tout: "" };
-  return state.people[name];
+// ---------- search → add to the list (newest on top) ----------
+function inEntries(name) { return state.entries.some((e) => e.name === name); }
+$("search").oninput = () => {
+  const q = norm($("search").value), box = $("sugg"); box.innerHTML = "";
+  if (!q) return;
+  const hits = MEMBERS.filter(([n]) => !inEntries(n) && norm(n).includes(q))
+    .sort((a, b) => (norm(a[0]).startsWith(q) ? 0 : 1) - (norm(b[0]).startsWith(q) ? 0 : 1)
+      || (state.circle >= 0 ? (a[1] !== state.circle) - (b[1] !== state.circle) : 0)).slice(0, 7);
+  hits.forEach(([n, c, kind]) => {
+    const d = document.createElement("div");
+    d.innerHTML = `<span>${esc(n)}</span><span class="tag">${esc((CIRCLES[c] || "").replace("حلقه ", ""))}</span>`;
+    d.onclick = () => add({ name: n, guest: false, kind, c });
+    box.appendChild(d);
+  });
+  const raw = $("search").value.trim();
+  if (raw.length > 1 && !inEntries(raw)) {
+    const d = document.createElement("div");
+    d.innerHTML = `<span class="g">➕ «${esc(raw)}» به‌عنوان مهمان</span>`;
+    d.onclick = () => add({ name: raw, guest: true, kind: "مهمان", c: -1 });
+    box.appendChild(d);
+  }
+};
+$("search").onkeydown = (e) => { if (e.key === "Enter") { const f = $("sugg").firstElementChild; if (f) f.click(); } };
+function add(p) {
+  state.entries.unshift(Object.assign(p, { st: "pres", tin: "", tout: "", two: false, tin2: "", tout2: "", fresh: true }));
+  $("search").value = ""; $("sugg").innerHTML = "";
+  render(); $("search").focus();
 }
-function visibleMembers() {
-  const q = $("search").value.trim();
-  return MEMBERS.filter(([n, c]) => (state.circle < 0 || c === state.circle) && (!q || n.includes(q)));
-}
+
 function render() {
-  const box = $("people"); box.innerHTML = "";
-  visibleMembers().forEach(([n, c, kind]) => {
-    const p = person(n);
-    const d = document.createElement("div"); d.className = "person";
-    d.innerHTML = `<div class="pname">${n}<span class="tag">${CIRCLES[c].replace("حلقه ", "")} · ${kind}</span></div>
-      <div class="st">${Object.entries(STATUS).filter(([k]) => state.type === "m" || k === "pres")
-        .map(([k, t]) => `<button class="${k}${p.st === k ? " on" : ""}" data-k="${k}">${t}</button>`).join("")}</div>
-      <div class="times ${p.st === "pres" ? "" : "hidden"}"><input type="time" value="${p.tin || $("pStart").value}" data-t="tin">
-      <input type="time" value="${p.tout || $("pEnd").value}" data-t="tout"></div>`;
-    d.querySelector(".st").onclick = (e) => {
-      const k = e.target.dataset.k; if (!k) return;
-      p.st = (state.type === "o" && p.st === k) ? "" : k; render();
+  const start = $("pStart").value, end = $("pEnd").value, mand = state.type === "m";
+  const box = $("entries"); box.innerHTML = "";
+  state.entries.forEach((e, i) => {
+    const d = document.createElement("div");
+    const leave = mand && e.st === "leave";
+    d.className = "ent" + (e.guest ? " guest" : "") + (leave ? " leave" : "") + (e.fresh ? " fresh" : "");
+    e.fresh = false;
+    const tag = e.guest ? "مهمان" : (CIRCLES[e.c] || "").replace("حلقه ", "") + (e.kind && e.kind !== "رسمی" ? " · " + e.kind : "");
+    let h = `<div class="ehead"><b>${esc(e.name)}</b><span class="tag"${e.guest ? ' style="color:var(--guest)"' : ""}>${esc(tag)}</span>
+      <button class="x" data-a="del" title="حذف">✖</button></div>`;
+    if (mand && !e.guest) h += `<div class="st"><button class="pres${e.st === "pres" ? " on" : ""}" data-a="pres">حاضر</button>
+      <button class="leave${e.st === "leave" ? " on" : ""}" data-a="leave">مرخصی</button></div>`;
+    if (!leave) {
+      h += `<div class="tm">ورود<input type="time" data-t="tin" value="${e.tin || start}">خروج<input type="time" data-t="tout" value="${e.tout || end}"><span></span></div>`;
+      if (e.two) h += `<div class="tm">ورود ۲<input type="time" data-t="tin2" value="${e.tin2}">خروج ۲<input type="time" data-t="tout2" value="${e.tout2}">
+        <button class="x" data-a="one" title="حذف نوبت دوم">✖</button></div>`;
+      else h += '<button class="add2" data-a="two">➕ نوبت دوم</button>';
+    }
+    d.innerHTML = h;
+    d.onclick = (ev) => {
+      const a = ev.target.dataset.a; if (!a) return;
+      if (a === "del") state.entries.splice(i, 1);
+      else if (a === "pres" || a === "leave") e.st = a;
+      else if (a === "two") { e.two = true; e.tin2 = e.tin2 || e.tout || end; }
+      else if (a === "one") { e.two = false; e.tin2 = e.tout2 = ""; }
+      render();
     };
-    d.querySelectorAll("input").forEach((inp) => inp.onchange = () => { p[inp.dataset.t] = inp.value; });
+    d.querySelectorAll("input").forEach((inp) => inp.onchange = () => {
+      const t = inp.dataset.t; e[t] = inp.value;
+      if ((t === "tin" && inp.value === start) || (t === "tout" && inp.value === end)) e[t] = "";   // = program time
+    });
     box.appendChild(d);
   });
-  state.guests.forEach((g, i) => {
-    const d = document.createElement("div"); d.className = "person";
-    d.innerHTML = `<div class="pname">${g.name}<span class="tag" style="color:var(--guest)">مهمان ✖</span></div>
-      <div class="times"><input type="time" value="${g.tin}"><input type="time" value="${g.tout}"></div>`;
-    d.querySelector(".tag").onclick = () => { state.guests.splice(i, 1); render(); };
-    const [a, b] = d.querySelectorAll("input"); a.onchange = () => g.tin = a.value; b.onchange = () => g.tout = b.value;
-    box.appendChild(d);
-  });
+  const abs = absentMembers();
+  $("absBox").classList.toggle("hidden", !mand);
+  $("absSum").textContent = "غایبین (" + fa(abs.length) + ")";
+  $("absList").textContent = abs.map((m) => m[0]).join("، ") || "—";
   const c = counts();
-  $("counts").textContent = `(حاضر ${fa(c.pres)} · مرخصی ${fa(c.leave)} · غایب ${fa(c.abs)} · مهمان ${fa(state.guests.length)})`;
+  $("counts").textContent = `حاضر ${fa(c.pres)}` + (mand ? ` · مرخصی ${fa(c.leave)} · غایب ${fa(c.abs)}` : "") + ` · مهمان ${fa(c.guest)}`;
 }
-function counts() {
-  const c = { pres: 0, leave: 0, abs: 0 };
-  rowsForOutput().forEach((r) => { if (c[r.st] !== undefined) c[r.st]++; });
-  return c;
+function absentMembers() {
+  if (state.type !== "m") return [];
+  return MEMBERS.filter(([n, c]) => (state.circle < 0 || c === state.circle) && !inEntries(n));
 }
-$("addGuest").onclick = () => {
-  const n = $("guestName").value.trim(); if (!n) return;
-  state.guests.push({ name: n, tin: $("pStart").value, tout: $("pEnd").value });
-  $("guestName").value = ""; render();
-};
 
-// ---------- draft (stored on this phone) ----------
-const DKEY = "qaem_draft_v1";
-$("saveDraft").onclick = () => {
-  const draft = { state, form: ["pName", "pUnit", "pDate", "pStart", "pEnd"].map((id) => $(id).value) };
-  try { localStorage.setItem(DKEY, JSON.stringify(draft)); log("draft saved: OK"); toast("💾 ذخیره شد"); }
-  catch (e) { log("draft save FAILED: " + e); toast("ذخیره نشد"); }
-};
-function restoreDraft() { try {
-  const d = JSON.parse(localStorage.getItem(DKEY) || "null");
-  if (d) { state = d.state; ["pName", "pUnit", "pDate", "pStart", "pEnd"].forEach((id, i) => $(id).value = d.form[i]);
-    $("pCircle").value = state.circle; [...$("pType").children].forEach((b) => b.classList.toggle("on", b.dataset.v === state.type));
-    log("draft restored from phone storage"); }
-} catch (e) { log("draft read: " + e); }
-render(); }
-
-function toast(m) { if (W && W.showAlert) { try { W.showAlert(m); return; } catch (e) {} } alert(m); }
-
-// ---------- output rows ----------
+// ---------- rows for the image and the CSV ----------
 function rowsForOutput() {
-  const rank = { pres: 0, leave: 1, abs: 2 };
-  return MEMBERS.filter(([, c]) => state.circle < 0 || c === state.circle)
-    .map(([n, c, kind]) => ({ n, c, kind, ...(state.people[n] || { st: state.type === "m" ? "abs" : "" }) }))
-    .filter((r) => state.type === "m" ? !!r.st : r.st === "pres")
-    .sort((a, b) => a.c - b.c || rank[a.st] - rank[b.st]);
+  const start = $("pStart").value, end = $("pEnd").value, mand = state.type === "m";
+  const rows = [];
+  state.entries.filter((e) => !e.guest).forEach((e) => {
+    if (!mand && e.st !== "pres") return;
+    rows.push({ n: e.name, c: e.c, kind: e.kind, st: e.st, ...(e.st === "pres" ? times(e, start, end) : { tin: "", tout: "", tin2: "", tout2: "" }) });
+  });
+  absentMembers().forEach(([n, c, kind]) => rows.push({ n, c, kind, st: "abs", tin: "", tout: "", tin2: "", tout2: "" }));
+  const guests = state.entries.filter((e) => e.guest).reverse().map((e) => ({ n: e.name, c: -1, kind: "مهمان", st: "pres", ...times(e, start, end) }));
+  return { rows, guests };
 }
+function times(e, start, end) { return { tin: e.tin || start, tout: e.tout || end, tin2: e.two ? e.tin2 : "", tout2: e.two ? e.tout2 : "" }; }
+function counts() {
+  const { rows, guests } = rowsForOutput(), c = { pres: 0, leave: 0, abs: 0, guest: guests.length };
+  rows.forEach((r) => c[r.st]++); return c;
+}
+
+// CSV in exactly the bot's format, so Excel's «ورود از بله» imports it with the preview
+const CSV_HEADER = ["id", "program", "unit", "date", "start", "end", "ptype", "circle", "desc",
+  "name", "pcircle", "mtype", "status", "in1", "out1", "in2", "out2", "note", "saved_at"];
 function csvText() {
-  const lines = ["نام,حلقه,نوع,وضعیت,ورود,خروج,برنامه,واحد,تاریخ"];
-  const meta = [$("pName").value, $("pUnit").value, $("pDate").value];
-  rowsForOutput().forEach((r) => lines.push([r.n, CIRCLES[r.c], r.kind, STATUS[r.st],
-    r.st === "pres" ? (r.tin || $("pStart").value) : "", r.st === "pres" ? (r.tout || $("pEnd").value) : "", ...meta].join(",")));
-  state.guests.forEach((g) => lines.push([g.name, "", "مهمان", "حاضر", g.tin, g.tout, ...meta].join(",")));
-  return lines.join("\n");
+  const { rows, guests } = rowsForOutput(), now = new Date(), p2 = (v) => String(v).padStart(2, "0");
+  const saved = `${now.getFullYear()}-${p2(now.getMonth() + 1)}-${p2(now.getDate())} ${p2(now.getHours())}:${p2(now.getMinutes())}:${p2(now.getSeconds())}`;
+  const head = [state.id, $("pName").value.trim(), $("pUnit").value, en($("pDate").value.trim()), $("pStart").value, $("pEnd").value,
+    state.type === "m" ? "اجباری" : "اختیاری", state.circle < 0 ? "" : CIRCLES[state.circle], $("pDesc").value.trim()];
+  const all = rows.concat(guests).map((r) => head.concat([r.n, r.c >= 0 ? CIRCLES[r.c] : "", r.kind, STATUS[r.st], r.tin, r.tout, r.tin2, r.tout2, "", saved]));
+  if (!all.length) all.push(head.concat(["", "", "", "", "", "", "", "", "", saved]));
+  const q = (v) => /[",\n\r]/.test(v) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v);
+  return [CSV_HEADER].concat(all).map((r) => r.map(q).join(",")).join("\r\n") + "\r\n";
 }
+function baseName() {
+  return `${en($("pDate").value.trim()).replace(/\//g, "-")} - ${$("pName").value.trim()} (${state.id.slice(0, 6)})`.replace(/[\\/:*?"<>|]/g, "-");
+}
+
+// ---------- draft on this phone ----------
+const DKEY = "qaem_draft_v2";
+function snapshot() { return { state, form: FORM_IDS.map((id) => $(id).value) }; }
+function applySnapshot(d) { state = d.state; FORM_IDS.forEach((id, i) => { if (d.form[i] !== undefined) $(id).value = d.form[i]; }); showForm(); }
+$("saveDraft").onclick = () => {
+  try { localStorage.setItem(DKEY, JSON.stringify(snapshot())); toast("💾 اطلاعات روی همین گوشی ذخیره شد. هر وقت مینی‌اپ را باز کنید، از همین‌جا ادامه می‌دهید."); }
+  catch (e) { toast("ذخیره نشد: " + e.message); }
+};
+function restoreDraft() {
+  $("pDate").value = today();
+  try { const d = JSON.parse(localStorage.getItem(DKEY) || "null"); if (d && d.state && d.state.entries) { applySnapshot(d); log("draft restored"); return; } } catch (e) {}
+  showForm();
+}
+$("oNew").onclick = () => {
+  if (!confirm("اطلاعات این برنامه از فرم پاک شود و برنامه جدید شروع شود؟")) return;
+  try { localStorage.removeItem(DKEY); } catch (e) {}
+  state = newState(); FORM_IDS.forEach((id) => { if (id !== "pUnit" && id !== "pStart" && id !== "pEnd") $(id).value = ""; });
+  $("pDate").value = today(); pics = []; $("outCard").classList.add("hidden"); showForm(); window.scrollTo(0, 0);
+};
+
+// ---------- final ----------
+$("final").onclick = async () => {
+  if (!$("pName").value.trim()) { toast("نام برنامه را بنویسید"); $("pName").focus(); return; }
+  if (!/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(en($("pDate").value.trim()))) { toast("تاریخ را به شکل ۱۴۰۵/۰۸/۲۶ بنویسید"); $("pDate").focus(); return; }
+  const c = counts();
+  if (!FROM_LINK && !confirm(`ثبت نهایی «${$("pName").value.trim()}»؟\nحاضر ${fa(c.pres)}` + (state.type === "m" ? ` · مرخصی ${fa(c.leave)} · غایب ${fa(c.abs)}` : "") + ` · مهمان ${fa(c.guest)}`)) return;
+  try { localStorage.setItem(DKEY, JSON.stringify(snapshot())); } catch (e) {}
+  $("final").disabled = true; $("final").textContent = "⏳ در حال ساخت عکس…";
+  try { pics = await makeImages(); } catch (e) { log("image FAILED: " + e); toast("ساخت عکس انجام نشد: " + e.message); }
+  $("final").disabled = false; $("final").textContent = "✔️ ثبت نهایی";
+  const box = $("shots"); box.innerHTML = "";
+  pics.forEach((b) => { const im = new Image(); im.src = URL.createObjectURL(b); box.appendChild(im); });
+  log("images: " + pics.map((b) => Math.round(b.size / 1024) + "KB").join(", "));
+  const inBale = !!(W && W.openLink) && !FROM_LINK;
+  $("oOpen").classList.toggle("hidden", !inBale);
+  ["oShare", "oSaveImg", "oSaveCsv"].forEach((id) => $(id).classList.toggle("hidden", inBale));
+  $("outHint").textContent = inBale
+    ? "بله اجازه ذخیره یا ارسال فایل نمی‌دهد؛ دکمه زیر همین صفحه را در مرورگر گوشی (Chrome) باز می‌کند. آنجا «ارسال عکس و CSV در بله» را بزنید و چت ربات را انتخاب کنید."
+    : "«ارسال عکس و CSV در بله» را بزنید، «بله» را انتخاب کنید و چت ربات (یا مدیر) را برگزینید.";
+  $("outCard").classList.remove("hidden");
+  $("outCard").scrollIntoView({ behavior: "smooth" });
+};
+
+// ---------- outputs ----------
+function b64urlEncode(str) { const b = new TextEncoder().encode(str); let s = ""; b.forEach((x) => s += String.fromCharCode(x));
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+function b64urlDecode(s) { const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/")); return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))); }
+$("oOpen").onclick = () => {   // the data (and password) travel in the "#" part, which is never sent to any server
+  const url = location.href.split("#")[0].split("?")[0] + "#d=" + b64urlEncode(JSON.stringify(Object.assign(snapshot(), { k: PASS })));
+  try { W.openLink(url, { try_instant_view: false }); } catch (e) { window.open(url, "_blank"); }
+};
+function files() {
+  const n = baseName();
+  return pics.map((b, i) => new File([b], `حضور ${n}${pics.length > 1 ? " - " + (i + 1) : ""}.jpg`, { type: "image/jpeg" }))
+    .concat([new File(["﻿" + csvText()], n + ".csv", { type: "text/csv" })]);
+}
+$("oShare").onclick = async () => {
+  const all = files(), csvOnly = all.slice(-1);
+  for (const fs of [all, csvOnly]) {
+    try {
+      if (!navigator.canShare || !navigator.canShare({ files: fs })) { log("share " + fs.length + ": not supported"); continue; }
+      await navigator.share({ files: fs, title: $("pName").value }); log("share " + fs.length + ": OK"); return;
+    } catch (e) { log("share FAILED: " + e); if (e.name === "AbortError") return; }
+  }
+  toast("ارسال مستقیم پشتیبانی نشد؛ عکس و CSV را ذخیره کنید و از داخل بله بفرستید.");
+};
+function dl(file) { const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = file.name; document.body.appendChild(a); a.click(); a.remove(); }
+$("oSaveImg").onclick = () => files().slice(0, -1).forEach(dl);
+$("oSaveCsv").onclick = () => dl(files().slice(-1)[0]);
 
 // ---------- image: A4 at 300 dpi on the letterhead, same layout as the bot's image ----------
-// Sizes below are in A4 "CSS px" (1240 x 1754) and multiplied by S when drawn.
 const S = 2, PW = 1240 * S, PH = 1754 * S, MM = 1240 / 210;
 const BOX = { top: Math.round(52 * MM) * S, bottom: Math.round(42 * MM) * S, side: Math.round(14 * MM) * S };
 const DEPT = "واحد سرمایه انسانی", TEAL = "#1f6f78", INK = "#1d2b2f";
 const F = (px, bold) => (bold ? "700 " : "") + px * S + 'px "BN","B Nazanin",Tahoma,sans-serif';
 let LH = null, assetsTried = false;
-
 async function loadAssets() {
   if (assetsTried) return; assetsTried = true;
-  try {
-    const f1 = new FontFace("BN", "url(BNazanin.ttf)"), f2 = new FontFace("BN", "url(BNazaninBold.ttf)", { weight: "700" });
-    await Promise.all([f1.load(), f2.load()]); document.fonts.add(f1); document.fonts.add(f2); log("font B Nazanin: OK");
-  } catch (e) { log("font FAILED: " + e); }
+  try { await Promise.all([document.fonts.load(F(27)), document.fonts.load(F(27, true))]); log("font: OK"); } catch (e) { log("font FAILED: " + e); }
   try {
     const url = URL.createObjectURL(new Blob([await decryptFile("letterhead.enc", PASS)], { type: "image/jpeg" }));
     LH = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; });
     log("letterhead: OK");
-  } catch (e) { log("letterhead FAILED"); }
+  } catch (e) { log("letterhead FAILED: " + e); }
 }
 function toMin(t) { const m = /^(\d{1,2}):(\d{2})/.exec(t || ""); return m ? +m[1] * 60 + +m[2] : null; }
 
 async function makeImages() {
   await loadAssets();
   const mand = state.type === "m", start = $("pStart").value, end = $("pEnd").value, st0 = toMin(start);
+  const { rows, guests } = rowsForOutput();
   const cnt = { pres: 0, leave: 0, abs: 0, late: 0 }, groups = new Map();
-  rowsForOutput().forEach((r) => {
-    r.tin2 = r.st === "pres" ? (r.tin || start) : ""; r.tout2 = r.st === "pres" ? (r.tout || end) : "";
-    r.late = r.st === "pres" && st0 !== null && toMin(r.tin2) > st0 + 10;
+  rows.forEach((r) => {
+    r.late = r.st === "pres" && st0 !== null && toMin(r.tin) > st0 + 10;
     cnt[r.st]++; if (r.late) cnt.late++;
     if (!groups.has(r.c)) groups.set(r.c, []); groups.get(r.c).push(r);
   });
-
   const L = BOX.side, R = PW - BOX.side, WD = R - L, BOTTOM = PH - BOX.bottom;
   const canvases = []; let x, y;
   function newPage() {
@@ -265,12 +382,9 @@ async function makeImages() {
     if (stroke) { x.strokeStyle = stroke; x.lineWidth = lw || S; x.stroke(); }
   }
   newPage();
-
-  // header (the letterhead already carries the organisation name)
   text(DEPT, PW / 2, y + 16 * S, F(26), "#555", "center"); y += 36 * S;
-  text($("pName").value, PW / 2, y + 26 * S, F(44, true), INK, "center"); y += 60 * S;
+  text($("pName").value.trim(), PW / 2, y + 26 * S, F(44, true), INK, "center"); y += 60 * S;
 
-  // info box
   const spans = [["واحد: ", $("pUnit").value], ["تاریخ: ", fa($("pDate").value)], ["ساعت: ", fa(start) + " تا " + fa(end)],
     ["نوع: ", mand ? "اجباری" : "اختیاری"], ["حلقه مخاطب: ", state.circle < 0 ? "همه حلقه‌ها" : CIRCLES[state.circle]]];
   const GAP = 28 * S;
@@ -278,21 +392,20 @@ async function makeImages() {
   const lines = [[]]; let lw = 0;
   spans.forEach((sp, i) => { const w = sw[i][0] + sw[i][1]; if (lines[lines.length - 1].length && lw + GAP + w > WD - 40 * S) { lines.push([]); lw = 0; }
     lines[lines.length - 1].push(i); lw += (lw ? GAP : 0) + w; });
-  const LH_INFO = 40 * S, boxH = lines.length * LH_INFO + 16 * S;
+  const LHI = 40 * S, boxH = lines.length * LHI + 16 * S;
   rrect(L, y, WD, boxH, 12 * S, "#f3f8f9", TEAL, 2 * S);
   lines.forEach((ln, li) => {
     const tot = ln.reduce((s, i) => s + sw[i][0] + sw[i][1], 0) + GAP * (ln.length - 1);
-    let cur = PW / 2 + tot / 2; const cy = y + 8 * S + LH_INFO * li + LH_INFO / 2;
+    let cur = PW / 2 + tot / 2; const cy = y + 8 * S + LHI * li + LHI / 2;
     ln.forEach((i) => { text(spans[i][0], cur, cy, F(27, true), TEAL, "right"); cur -= sw[i][0];
       text(spans[i][1], cur, cy, F(27), INK, "right"); cur -= sw[i][1] + GAP; });
   });
   y += boxH + 14 * S;
 
-  // badges
   const badges = [["حاضر", cnt.pres, "#e2f0d9", "#007832"]];
   if (cnt.late) badges.push(["تأخیر", cnt.late, "#fbe5d6", "#c85f00"]);
   if (mand) badges.push(["مرخصی", cnt.leave, "#fff2cc", "#966e00"], ["غایب", cnt.abs, "#f8d7da", "#be1e2d"]);
-  badges.push(["مهمان", state.guests.length, "#ddebf7", "#2850a0"]);
+  badges.push(["مهمان", guests.length, "#ddebf7", "#2850a0"]);
   x.font = F(28, true);
   const bw = badges.map(([t, n]) => x.measureText(t + ": " + fa(n)).width + 44 * S), BG = 14 * S, BH = 46 * S;
   let bx = PW / 2 + (bw.reduce((a, b) => a + b, 0) + BG * (badges.length - 1)) / 2;
@@ -300,9 +413,8 @@ async function makeImages() {
     text(t + ": " + fa(n), bx - bw[i] / 2, y + BH / 2 + S, F(28, true), fg, "center"); bx -= bw[i] + BG; });
   y += BH + 20 * S;
 
-  // tables, continued on the next page with the header repeated
   const TH = 44 * S, HH = 38 * S, RH = 42 * S;
-  function table(title, cols, rows) {   // cols: [[header, width fraction|null]], rows: [{cells, cls}]
+  function table(title, cols, trs) {
     const fixed = cols.reduce((s, c) => s + (c[1] || 0), 0), widths = cols.map((c) => (c[1] || 1 - fixed) * WD);
     function head(cont) {
       if (y + TH + HH + RH > BOTTOM) newPage();
@@ -315,7 +427,7 @@ async function makeImages() {
       y += HH;
     }
     head(false);
-    rows.forEach((r) => {
+    trs.forEach((r) => {
       if (y + RH > BOTTOM) { newPage(); head(true); }
       let cx = R;
       r.cells.forEach((c, i) => {
@@ -329,20 +441,28 @@ async function makeImages() {
     });
     y += 16 * S;
   }
+  const shift2 = (r) => (r.tin2 || r.tout2) ? fa(r.tin2) + " تا " + fa(r.tout2) : "";
   const ST = { pres: ["حاضر", "#007832"], leave: ["مرخصی", "#966e00"], abs: ["غایب", "#be1e2d"] }, rank = { pres: 0, leave: 1, abs: 2 };
+  const any2 = rows.some((r) => r.tin2 || r.tout2);
   [...groups.keys()].sort((a, b) => a - b).forEach((c) => {
     const items = groups.get(c).sort((a, b) => rank[a.st] - rank[b.st] || (a.kind !== "رسمی") - (b.kind !== "رسمی"));
-    table(CIRCLES[c], [["ردیف", 0.07], ["نام و نام خانوادگی", null], ["نوع عضویت", 0.13], ["وضعیت", 0.11], ["ورود", 0.11], ["خروج", 0.11]],
-      items.map((r, i) => ({
-        bg: r.st === "leave" ? "#fffaf0" : r.st === "abs" ? "#fdf1f2" : "#fff", color: r.st === "abs" ? "#8a1520" : null,
-        cells: [{ t: fa(i + 1) }, { t: r.n }, { t: r.kind }, { t: ST[r.st][0], color: ST[r.st][1], bold: true },
-          { t: fa(r.tin2), color: r.late ? "#c85f00" : null, bold: r.late }, { t: fa(r.tout2) }],
-      })));
+    const cols = [["ردیف", 0.07], ["نام و نام خانوادگی", null], ["نوع عضویت", 0.12], ["وضعیت", 0.1], ["ورود", 0.1], ["خروج", 0.1]];
+    if (any2) cols.push(["نوبت دوم", 0.19]);
+    table(CIRCLES[c] || "سایر", cols, items.map((r, i) => {
+      const cells = [{ t: fa(i + 1) }, { t: r.n }, { t: r.kind }, { t: ST[r.st][0], color: ST[r.st][1], bold: true },
+        { t: fa(r.tin), color: r.late ? "#c85f00" : null, bold: r.late }, { t: fa(r.tout) }];
+      if (any2) cells.push({ t: shift2(r) });
+      return { bg: r.st === "leave" ? "#fffaf0" : r.st === "abs" ? "#fdf1f2" : "#fff", color: r.st === "abs" ? "#8a1520" : null, cells };
+    }));
   });
-  if (state.guests.length) {
-    table("مهمانان", [["ردیف", 0.07], ["نام و نام خانوادگی", null], ["ورود", 0.14], ["خروج", 0.14]],
-      state.guests.map((g, i) => ({ cells: [{ t: fa(i + 1) }, { t: g.name }, { t: fa(g.tin) }, { t: fa(g.tout) }] })));
+  if (guests.length) {
+    const g2 = guests.some((r) => r.tin2 || r.tout2);
+    const cols = [["ردیف", 0.07], ["نام و نام خانوادگی", null], ["ورود", 0.12], ["خروج", 0.12]];
+    if (g2) cols.push(["نوبت دوم", 0.19]);
+    table("مهمانان", cols, guests.map((r, i) => ({ cells: [{ t: fa(i + 1) }, { t: r.n }, { t: fa(r.tin) }, { t: fa(r.tout) }].concat(g2 ? [{ t: shift2(r) }] : []) })));
   }
+  const desc = $("pDesc").value.trim();
+  if (desc) { if (y + 40 * S > BOTTOM) newPage(); text("توضیحات: " + desc, R, y + 14 * S, F(25), INK, "right"); y += 44 * S; }
   if (y + 30 * S > BOTTOM) newPage();
   text("ثبت‌شده در مینی‌اپ بله", L, y + 10 * S, F(20), "#777", "left");
 
@@ -355,95 +475,7 @@ async function makeImages() {
   return out;
 }
 
-$("final").onclick = async () => {
-  pngs = await makeImages();
-  const box = $("shots"); box.innerHTML = "<p class='counts'>اگر دکمه‌ها کار نکردند: انگشت را روی عکس نگه دارید تا گزینه ذخیره بیاید.</p>";
-  pngs.forEach((b) => { const im = new Image(); im.src = URL.createObjectURL(b); box.appendChild(im); });
-  log("images: " + pngs.length + " page(s), " + pngs.map((b) => Math.round(b.size / 1024) + "KB").join(", "));
-  box.scrollIntoView({ behavior: "smooth" });
-};
-
-// ---------- output method tests ----------
-function fname(ext, i) { return `حضور ${$("pName").value} ${$("pDate").value.replace(/\//g, "-")}${i ? " - " + (i + 1) : ""}.${ext}`; }
-function needImg() { if (!pngs.length) { toast("اول «ثبت نهایی و ساخت عکس» را بزنید"); return true; } return false; }
-function dl(blob, name) {
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
-  document.body.appendChild(a); a.click(); a.remove();
-}
-$("tDownload").onclick = () => {
-  if (needImg()) return;
-  try { pngs.forEach((b, i) => dl(b, fname("jpg", i))); log("1 download: clicked (check phone gallery/Downloads)"); }
-  catch (e) { log("1 download FAILED: " + e); }
-};
-$("tShare").onclick = async () => {
-  if (needImg()) return;
-  const files = pngs.map((b, i) => new File([b], fname("jpg", i), { type: "image/jpeg" }));
-  try {
-    if (!navigator.canShare || !navigator.canShare({ files })) { log("2 share: NOT supported here"); return; }
-    await navigator.share({ files, title: $("pName").value }); log("2 share: OK");
-  } catch (e) { log("2 share FAILED: " + e); }
-};
-$("tCopy").onclick = async () => {
-  try { await navigator.clipboard.writeText(csvText()); log("3 copy: OK (" + csvText().length + " chars)"); toast("متن کپی شد؛ در چت بچسبانید"); }
-  catch (e) { log("3 copy FAILED: " + e); }
-};
-$("tCsv").onclick = () => {
-  try { dl(new Blob(["﻿" + csvText()], { type: "text/csv" }), fname("csv")); log("4 csv download: clicked"); }
-  catch (e) { log("4 csv FAILED: " + e); }
-};
-$("tSend").onclick = () => {
-  if (!W || !W.sendData) { log("5 sendData: not available"); return; }
-  const t = csvText(); log("5 sendData: " + new Blob([t]).size + " bytes (limit 4096)");
-  try { W.sendData(t.slice(0, 1300)); log("5 sendData: called"); } catch (e) { log("5 sendData FAILED: " + e); }
-};
-
-// ---------- 7) share image(s) + CSV together, e.g. into a Bale chat ----------
-$("tShareAll").onclick = async () => {
-  if (needImg()) return;
-  const csv = new File(["﻿" + csvText()], fname("csv"), { type: "text/csv" });
-  const imgs = pngs.map((b, i) => new File([b], fname("jpg", i), { type: "image/jpeg" }));
-  const tries = [[...imgs, csv], [csv]];          // all together, else CSV alone
-  for (const files of tries) {
-    try {
-      if (!navigator.canShare || !navigator.canShare({ files })) { log("7 share " + files.length + " files: NOT supported"); continue; }
-      await navigator.share({ files, title: $("pName").value });
-      log("7 share " + files.length + " files: OK"); return;
-    } catch (e) { log("7 share " + files.length + " files FAILED: " + e); if (e.name === "AbortError") return; }
-  }
-};
-
-// ---------- 6) hand the data to the phone's own browser, where saving files works ----------
-// The data travels in the URL "#" part, which browsers never send to the web server.
-const FORM_IDS = ["pName", "pUnit", "pDate", "pStart", "pEnd"];
-function b64urlEncode(str) {
-  const bytes = new TextEncoder().encode(str); let bin = "";
-  bytes.forEach((b) => bin += String.fromCharCode(b));
-  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-function b64urlDecode(s) {
-  const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/"));
-  return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
-}
-$("tBrowser").onclick = () => {
-  const payload = b64urlEncode(JSON.stringify({ state, form: FORM_IDS.map((id) => $(id).value), k: PASS }));
-  const url = location.href.split("#")[0].split("?")[0] + "#d=" + payload;
-  log("6 open in browser: " + url.length + " chars");
-  try {
-    if (W && W.openLink) W.openLink(url, { try_instant_view: false }); else window.open(url, "_blank");
-    log("6 openLink: called");
-  } catch (e) { log("6 openLink FAILED: " + e); }
-};
-function handleHash(d) {        // opened from button 6, in the phone browser
-  try {
-    state = d.state; FORM_IDS.forEach((id, i) => $(id).value = d.form[i]);
-    $("pCircle").value = state.circle;
-    [...$("pType").children].forEach((b) => b.classList.toggle("on", b.dataset.v === state.type));
-    render(); log("6 data received in browser: OK");
-    $("final").click();
-  } catch (e) { log("6 data decode FAILED: " + e); }
-}
-
-// ---------- password + decryption (see src/miniapp_encrypt.py for the file format) ----------
+// ---------- password + decryption (format: see src/miniapp_encrypt.py) ----------
 async function decryptFile(url, pw) {
   const r = await fetch(url, { cache: "no-cache" });
   if (!r.ok) throw new Error(url + ": " + r.status);
@@ -464,19 +496,19 @@ async function unlock(pw) {
   try { localStorage.setItem(PWKEY, pw); } catch (e) {}
   fillLists(data.units);
   $("lock").classList.add("hidden");
-  log("members: " + MEMBERS.length + " (decrypted OK)");
+  log("members: " + MEMBERS.length);
 }
 async function boot() {
   let hashData = null;
   if (location.hash.startsWith("#d=")) {
-    try { hashData = JSON.parse(b64urlDecode(location.hash.slice(3))); } catch (e) { log("6 data decode FAILED: " + e); }
+    try { hashData = JSON.parse(b64urlDecode(location.hash.slice(3))); } catch (e) { log("link data FAILED: " + e); }
     history.replaceState(null, "", location.pathname);       // drop the data from the address bar
   }
   let pw = hashData && hashData.k;
   if (!pw) { try { pw = localStorage.getItem(PWKEY) || ""; } catch (e) { pw = ""; } }
   const go = async (p) => {
     await unlock(p);
-    if (hashData) handleHash(hashData); else restoreDraft();
+    if (hashData) { FROM_LINK = true; applySnapshot(hashData); $("final").click(); } else restoreDraft();
   };
   if (pw) { try { await go(pw); return; } catch (e) { log("saved password: " + e.message); } }
   $("lock").classList.remove("hidden");
