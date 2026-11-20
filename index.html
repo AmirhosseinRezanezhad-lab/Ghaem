@@ -61,6 +61,7 @@
   .st button.leave.on { background:var(--leave); border-color:var(--leave); }
   .tm { display:grid; grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr) auto; gap:4px 6px; align-items:center; margin-top:6px; font-size:14px; color:var(--mut); }
   .tm input { padding:3px 4px; font-size:15px; min-width:0; }
+  .tm input.auto { color:var(--mut); background:#f6f8f9; }
   .tools { display:flex; gap:6px; margin-top:6px; }
   .add2 { font-size:14px; padding:3px 10px; color:var(--pri); border-color:var(--pri); }
   .note input { margin-top:6px; padding:4px 8px; font-size:15px; }
@@ -144,7 +145,7 @@
 <script>
 (() => {   // own scope: the Bale SDK defines globals
 "use strict";
-let CIRCLES = [], MEMBERS = [], UNITS = [], LEADERS = [], PASS = "";
+let CIRCLES = [], MEMBERS = [], UNITS = [], LEADERS = [], GUESTS = [], PASS = "";
 const UNIT_SEP = "، ";   // several units = a joint program (same as Excel and the bot)       // decrypted from members.enc after the password
 const $ = (id) => document.getElementById(id);
 const W = window.Bale && window.Bale.WebApp;
@@ -209,10 +210,18 @@ $("search").oninput = () => {
     d.onclick = () => add({ name: n, guest: false, kind, c });
     box.appendChild(d);
   });
+  GUESTS.filter((g) => !inEntries(g) && norm(g).includes(q))
+    .sort((a, b) => (norm(a).startsWith(q) ? 0 : 1) - (norm(b).startsWith(q) ? 0 : 1)).slice(0, 5).forEach((g) => {
+      const d = document.createElement("div");
+      d.innerHTML = `<span>${esc(g)}</span><span class="tag" style="color:var(--guest)">مهمان</span>`;
+      d.onclick = () => add({ name: g, guest: true, kind: "مهمان", c: -1 });
+      box.appendChild(d);
+    });
   const raw = $("search").value.trim();
-  if (raw.length > 1 && !inEntries(raw)) {
+  const known = MEMBERS.some(([n]) => norm(n) === q) || GUESTS.some((g) => norm(g) === q);
+  if (raw.length > 1 && !inEntries(raw) && !known) {
     const d = document.createElement("div");
-    d.innerHTML = `<span class="g">➕ «${esc(raw)}» به‌عنوان مهمان</span>`;
+    d.innerHTML = `<span class="g">➕ «${esc(raw)}» به‌عنوان مهمان جدید</span>`;
     d.onclick = () => add({ name: raw, guest: true, kind: "مهمان", c: -1 });
     box.appendChild(d);
   }
@@ -240,10 +249,13 @@ function render() {
     let tools = "";
     if (!leave) {
       const free = e.guest || LEADERS.includes(e.name);     // guests and commanders: times optional
-      const dIn = free ? e.tin : (e.tin || start), dOut = free ? e.tout : (e.tout || end);
-      h += `<div class="tm">ورود<input type="time" data-t="tin" value="${dIn}">خروج<input type="time" data-t="tout" value="${dOut}"><span></span></div>`;
+      const dIn = free ? e.tin : (e.tin || start);
+      const a1 = !e.tout && (free ? !!autoOut(e.tin, end) : true), dOut = e.tout || (free ? autoOut(e.tin, end) : end);
+      const a2 = e.two && !e.tout2 && !!autoOut(e.tin2, end), dOut2 = e.tout2 || autoOut(e.tin2, end);
+      const tip = ' title="خروج ثبت نشده؛ ساعت پایان برنامه حساب می‌شود"';
+      h += `<div class="tm">ورود<input type="time" data-t="tin" value="${dIn}">خروج<input type="time" data-t="tout" value="${dOut}"${a1 ? ' class="auto"' + tip : ""}><span></span></div>`;
       if (free && !e.tin && !e.tout) h += '<div class="counts">ساعت اختیاری است</div>';
-      if (e.two) h += `<div class="tm">ورود ۲<input type="time" data-t="tin2" value="${e.tin2}">خروج ۲<input type="time" data-t="tout2" value="${e.tout2}">
+      if (e.two) h += `<div class="tm">ورود ۲<input type="time" data-t="tin2" value="${e.tin2}">خروج ۲<input type="time" data-t="tout2" value="${dOut2}"${a2 ? ' class="auto"' + tip : ""}>
         <button class="x" data-a="one" title="حذف نوبت دوم">✖</button></div>`;
       else tools += '<button class="add2" data-a="two">➕ نوبت دوم</button>';
     }
@@ -263,6 +275,8 @@ function render() {
     d.querySelectorAll("input").forEach((inp) => inp.onchange = () => {
       const t = inp.dataset.t; e[t] = t === "note" ? inp.value.trim() : inp.value;
       if (!e.guest && !LEADERS.includes(e.name) && ((t === "tin" && inp.value === start) || (t === "tout" && inp.value === end))) e[t] = "";   // = program time
+      if ((t === "tout" || t === "tout2") && inp.value === autoOut(e[t === "tout" ? "tin" : "tin2"], $("pEnd").value)) e[t] = "";   // = the automatic exit
+      if (t === "tin" || t === "tin2") render();     // shows the automatic exit at once
     });
     const ni = d.querySelector("[data-t=note]"); if (ni) ni.oninput = ni.onchange;
     box.appendChild(d);
@@ -292,9 +306,12 @@ function rowsForOutput() {
   const guests = state.entries.filter((e) => e.guest).reverse().map((e) => ({ n: e.name, c: -1, kind: "مهمان", st: "pres", note: e.note || "", ...times(e, start, end) }));
   return { rows, guests };
 }
+// an entry time with no exit: the exit is the end of the program (when the entry is before it)
+function autoOut(tin, end) { return tin && end && tin < end ? end : ""; }
 function times(e, start, end) {
-  if (e.guest || LEADERS.includes(e.name)) return { tin: e.tin || "", tout: e.tout || "", tin2: e.two ? e.tin2 : "", tout2: e.two ? e.tout2 : "" };
-  return { tin: e.tin || start, tout: e.tout || end, tin2: e.two ? e.tin2 : "", tout2: e.two ? e.tout2 : "" }; }
+  const t2 = { tin2: e.two ? e.tin2 : "", tout2: e.two ? (e.tout2 || autoOut(e.tin2, end)) : "" };
+  if (e.guest || LEADERS.includes(e.name)) return { tin: e.tin || "", tout: e.tout || autoOut(e.tin, end), ...t2 };
+  return { tin: e.tin || start, tout: e.tout || end, ...t2 }; }
 function counts() {
   const { rows, guests } = rowsForOutput(), c = { pres: 0, leave: 0, abs: 0, guest: guests.length };
   rows.forEach((r) => c[r.st]++); return c;
@@ -677,7 +694,7 @@ async function decryptFile(url, pw) {
 const PWKEY = "qaem_pw_v1";
 async function unlock(pw) {
   const data = JSON.parse(new TextDecoder().decode(await decryptFile("members.enc", pw)));
-  PASS = pw; CIRCLES = data.circles; MEMBERS = data.members; LEADERS = data.leaders || [];
+  PASS = pw; CIRCLES = data.circles; MEMBERS = data.members; LEADERS = data.leaders || []; GUESTS = data.guests || [];
   try { localStorage.setItem(PWKEY, pw); } catch (e) {}
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().then((r) => log("persistent storage: " + r), () => {}); } catch (e) {}
   fillLists(data.units);
