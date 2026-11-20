@@ -81,6 +81,8 @@
 <body>
 <div id="lock" class="hidden"><div class="card"><h3>🔒 حضور و غیاب قرارگاه</h3>
   <p class="counts">رمز مینی‌اپ را وارد کنید (فقط بار اول)</p>
+  <p class="counts" style="font-size:13px">اگر قبلاً رمز را زده بودید، حافظه بله روی این گوشی پاک شده است؛
+    بعد از ورود، برنامه‌های ارسال‌شده را از «📥 برنامه‌های ارسال‌شده به ربات» برگردانید.</p>
   <input id="lockPw" type="password" autocomplete="current-password" dir="ltr" placeholder="رمز">
   <button class="btn" id="lockBtn">ورود</button><div id="lockErr"></div></div></div>
 
@@ -90,6 +92,10 @@
   <div class="card" style="margin-top:12px"><h3>برنامه‌های ثبت‌شده</h3>
     <p class="counts">📝 ذخیره‌شده (هنوز ثبت نهایی نشده) · ✅ ثبت نهایی شده — برای ویرایش روی برنامه بزنید.</p>
     <div id="hList"></div></div>
+  <div class="card"><h3>📥 برنامه‌های ارسال‌شده به ربات</h3>
+    <p class="counts">اگر برنامه‌ای از این گوشی پاک شده (مثلاً بعد از پرسیدن دوباره رمز)، از اینجا برگردانید و دوباره ویرایش کنید.
+      فقط برنامه‌هایی که فایل CSV آن‌ها برای ربات فرستاده شده اینجا هستند.</p>
+    <button class="btn sec" id="hSent">نمایش لیست</button><div id="rList"></div></div>
 </main>
 <main id="editor" class="hidden">
   <div class="card" id="cardInfo">
@@ -186,7 +192,7 @@ function showForm() {
   render();
 }
 $("pType").onclick = (e) => { if (!e.target.dataset.v) return; state.type = e.target.dataset.v; showForm(); };
-$("pCircle").onchange = () => { state.circle = +$("pCircle").value; render(); };
+$("pCircle").onchange = () => { state.circle = +$("pCircle").value; delete state.known; render(); };
 $("pStart").onchange = $("pEnd").onchange = render;
 
 // ---------- search → add to the list (newest on top) ----------
@@ -270,6 +276,7 @@ function render() {
 }
 function absentMembers() {
   if (state.type !== "m") return [];
+  if (state.known) return state.known.filter(([n]) => !inEntries(n));   // brought back from the bot: that day's members, not today's
   return MEMBERS.filter(([n, c]) => (state.circle < 0 || c === state.circle) && !inEntries(n));
 }
 
@@ -320,8 +327,22 @@ function saveProgs(p) { localStorage.setItem(PKEY, JSON.stringify(p)); }
 function storeCurrent(final) {
   const p = loadProgs();
   p[state.id] = Object.assign(snapshot(), { savedAt: Date.now(), final });
-  saveProgs(p); openedJson = JSON.stringify(snapshot());
+  saveProgs(p); openedJson = JSON.stringify(snapshot()); clearAuto();
 }
+
+// automatic copy of the open program every few seconds (survives closing Bale without «ذخیره»)
+const AKEY = "qaem_autosave_v1";
+function loadAuto() { try { const a = JSON.parse(localStorage.getItem(AKEY) || "null"); return a && a.snap && a.snap.state ? a : null; } catch (e) { return null; } }
+function clearAuto() { try { localStorage.removeItem(AKEY); } catch (e) {} }
+function autoSave() {
+  if (FROM_LINK || $("editor").classList.contains("hidden")) return;
+  const j = JSON.stringify(snapshot());
+  if (j === openedJson) return;
+  try { localStorage.setItem(AKEY, JSON.stringify({ snap: JSON.parse(j), savedAt: Date.now() })); } catch (e) {}
+}
+setInterval(autoSave, 3000);
+document.addEventListener("visibilitychange", () => { if (document.hidden) autoSave(); });
+window.addEventListener("pagehide", autoSave);
 function view(name) {
   ["home", "editor"].forEach((v) => $(v).classList.toggle("hidden", v !== name));
   $("bar").classList.toggle("hidden", name !== "editor" || FROM_LINK);
@@ -331,7 +352,20 @@ function view(name) {
 function showHome() {
   const p = loadProgs(), box = $("hList"); box.innerHTML = "";
   const items = Object.entries(p).sort(([, a], [, b]) => (a.final - b.final) || (b.savedAt - a.savedAt));
-  if (!items.length) box.innerHTML = '<p class="counts">هنوز برنامه‌ای ثبت نشده است.</p>';
+  const au = loadAuto();
+  if (au) {
+    const el = document.createElement("div");
+    el.className = "prog draft";
+    el.innerHTML = `<span>♻️</span><div class="pi"><div class="pt">${esc(au.snap.form[0] || "بدون نام")} — ادامه کار ذخیره‌نشده</div>
+      <div class="ps">آخرین تغییر: ${esc(fa(new Date(au.savedAt).toLocaleTimeString("fa-IR")))} · برای ادامه بزنید</div></div>
+      <button class="x" title="دور ریختن">🗑</button>`;
+    el.onclick = (ev) => {
+      if (ev.target.classList.contains("x")) { if (confirm("تغییرات ذخیره‌نشده دور ریخته شود؟")) { clearAuto(); showHome(); } return; }
+      openProgram(au.snap, true);
+    };
+    box.appendChild(el);
+  }
+  if (!items.length && !au) box.innerHTML = '<p class="counts">برنامه‌ای روی این گوشی نیست. اگر قبلاً برنامه داشتید، از «📥 برنامه‌های ارسال‌شده به ربات» (پایین) برگردانید.</p>';
   items.forEach(([id, d]) => {
     const st = d.state, f = d.form, n = st.entries.filter((e) => !e.guest && e.st === "pres").length + st.entries.filter((e) => e.guest).length;
     const el = document.createElement("div");
@@ -350,7 +384,7 @@ function showHome() {
   });
   view("home");
 }
-function openProgram(d) {
+function openProgram(d, unsaved) {
   pics = []; $("outCard").classList.add("hidden"); $("search").value = ""; $("sugg").innerHTML = "";
   if (d) applySnapshot(JSON.parse(JSON.stringify(d)));
   else {
@@ -359,13 +393,58 @@ function openProgram(d) {
     $("pDate").value = today(); $("pStart").value = "20:00"; $("pEnd").value = "22:00"; $("pUnit").value = "";
     showForm();
   }
-  openedJson = JSON.stringify(snapshot());
+  openedJson = unsaved ? "" : JSON.stringify(snapshot());   // a recovered copy still counts as unsaved
   view("editor");
 }
 $("hNew").onclick = () => openProgram(null);
 $("back").onclick = () => {
   if (JSON.stringify(snapshot()) !== openedJson && !confirm("تغییرات ذخیره نشده‌اند. بدون ذخیره برگردید؟")) return;
+  clearAuto();
   showHome();
+};
+
+// ---------- programs sent to the bot (programs.enc, published by the bot) -> back onto this phone ----------
+function fromSent(p) {
+  const st = { id: p.id, type: p.ptype === "اجباری" ? "m" : "o", circle: CIRCLES.indexOf(p.circle), entries: [] };
+  const mem = [], gst = [], known = [];
+  if (st.type === "m") st.known = known;    // the members of that day (the member list may have changed since)
+  p.rows.forEach(([n, pc, mt, status, i1, o1, i2, o2, note]) => {
+    if (!n) return;
+    const guest = mt === "مهمان";
+    const m = MEMBERS.find((x) => x[0] === n);
+    if (!guest) known.push([n, m ? m[1] : CIRCLES.indexOf(pc), mt || (m ? m[2] : "")]);
+    if (!guest && status === "غایب") return;
+    const e = { name: n, guest, kind: guest ? "مهمان" : (mt || (m ? m[2] : "")), c: guest ? -1 : (m ? m[1] : CIRCLES.indexOf(pc)),
+      st: !guest && status === "مرخصی" ? "leave" : "pres", tin: i1 || "", tout: o1 || "", two: !!(i2 || o2), tin2: i2 || "", tout2: o2 || "", note: note || "" };
+    if (!guest && !LEADERS.includes(n)) { if (e.tin === p.start) e.tin = ""; if (e.tout === p.end) e.tout = ""; }   // = program time
+    (guest ? gst : mem).push(e);
+  });
+  st.entries = mem.concat(gst.reverse());   // the CSV lists guests in reverse order
+  return { state: st, form: [p.name, p.unit, fa(p.date), p.start, p.end, p.desc], savedAt: Date.now(), final: true };
+}
+$("hSent").onclick = async () => {
+  const box = $("rList"); box.innerHTML = '<p class="counts">در حال دریافت…</p>';
+  let list;
+  try { list = JSON.parse(new TextDecoder().decode(await decryptFile("programs.enc", PASS))); }
+  catch (e) { box.innerHTML = `<p class="counts">دریافت نشد (${esc(e.message)}). اینترنت را بررسی کنید.</p>`; return; }
+  box.innerHTML = list.length ? "" : '<p class="counts">برنامه‌ای پیدا نشد.</p>';
+  const local = loadProgs();
+  list.forEach((sp) => {
+    const n = sp.rows.filter((r) => r[3] === "حاضر").length;
+    const el = document.createElement("div"); el.className = "prog";
+    el.innerHTML = `<span>📥</span><div class="pi"><div class="pt">${esc(sp.name || "بدون نام")}</div>
+      <div class="ps">${esc(fa(sp.date))} · ${esc(sp.unit)} · ${esc(sp.ptype)} · ${fa(n)} حاضر${local[sp.id] ? " · روی این گوشی هست" : ""}</div></div>`;
+    el.onclick = () => {
+      const cur = loadProgs();
+      if (cur[sp.id] && !confirm(`«${sp.name}» روی این گوشی هم هست.\nنسخه فرستاده‌شده به ربات جایگزین آن شود؟`)) return;
+      const d = fromSent(sp);
+      cur[sp.id] = d;
+      try { saveProgs(cur); } catch (e) { toast("ذخیره نشد: " + e.message); return; }
+      toast("✅ برگردانده شد. حالا می‌توانید ویرایش و دوباره ثبت نهایی کنید.");
+      openProgram(d);
+    };
+    box.appendChild(el);
+  });
 };
 $("oHome").onclick = showHome;
 $("saveDraft").onclick = () => {
@@ -600,6 +679,7 @@ async function unlock(pw) {
   const data = JSON.parse(new TextDecoder().decode(await decryptFile("members.enc", pw)));
   PASS = pw; CIRCLES = data.circles; MEMBERS = data.members; LEADERS = data.leaders || [];
   try { localStorage.setItem(PWKEY, pw); } catch (e) {}
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().then((r) => log("persistent storage: " + r), () => {}); } catch (e) {}
   fillLists(data.units);
   $("lock").classList.add("hidden");
   log("members: " + MEMBERS.length);
