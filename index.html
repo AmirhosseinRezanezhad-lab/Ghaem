@@ -249,13 +249,13 @@ function render() {
     let tools = "";
     if (!leave) {
       const free = e.guest || LEADERS.includes(e.name);     // guests and commanders: times optional
-      const dIn = free ? e.tin : (e.tin || start);
-      const a1 = !e.tout && (free ? !!autoOut(e.tin, end) : true), dOut = e.tout || (free ? autoOut(e.tin, end) : end);
-      const a2 = e.two && !e.tout2 && !!autoOut(e.tin2, end), dOut2 = e.tout2 || autoOut(e.tin2, end);
-      const tip = ' title="خروج ثبت نشده؛ ساعت پایان برنامه حساب می‌شود"';
-      h += `<div class="tm">ورود<input type="time" data-t="tin" value="${dIn}">خروج<input type="time" data-t="tout" value="${dOut}"${a1 ? ' class="auto"' + tip : ""}><span></span></div>`;
+      const f = times(e, start, end);                        // with the automatic times filled in
+      const aIn = free && !e.tin && !!f.tin, a1 = !e.tout && !!f.tout, aIn2 = !e.tin2 && !!f.tin2, a2 = !e.tout2 && !!f.tout2;
+      const tip = ' title="خروج ثبت نشده؛ ساعت پایان برنامه حساب می‌شود"', tipIn = ' title="ورود ثبت نشده؛ خودکار حساب می‌شود"';
+      const dOut2 = f.tout2;
+      h += `<div class="tm">ورود<input type="time" data-t="tin" value="${f.tin}"${aIn ? ' class="auto"' + tipIn : ""}>خروج<input type="time" data-t="tout" value="${f.tout}"${a1 ? ' class="auto"' + tip : ""}><span></span></div>`;
       if (free && !e.tin && !e.tout) h += '<div class="counts">ساعت اختیاری است</div>';
-      if (e.two) h += `<div class="tm">ورود ۲<input type="time" data-t="tin2" value="${e.tin2}">خروج ۲<input type="time" data-t="tout2" value="${dOut2}"${a2 ? ' class="auto"' + tip : ""}>
+      if (e.two) h += `<div class="tm">ورود ۲<input type="time" data-t="tin2" value="${f.tin2}"${aIn2 ? ' class="auto"' + tipIn : ""}>خروج ۲<input type="time" data-t="tout2" value="${dOut2}"${a2 ? ' class="auto"' + tip : ""}>
         <button class="x" data-a="one" title="حذف نوبت دوم">✖</button></div>`;
       else tools += '<button class="add2" data-a="two">➕ نوبت دوم</button>';
     }
@@ -275,8 +275,11 @@ function render() {
     d.querySelectorAll("input").forEach((inp) => inp.onchange = () => {
       const t = inp.dataset.t; e[t] = t === "note" ? inp.value.trim() : inp.value;
       if (!e.guest && !LEADERS.includes(e.name) && ((t === "tin" && inp.value === start) || (t === "tout" && inp.value === end))) e[t] = "";   // = program time
-      if ((t === "tout" || t === "tout2") && inp.value === autoOut(e[t === "tout" ? "tin" : "tin2"], $("pEnd").value)) e[t] = "";   // = the automatic exit
-      if (t === "tin" || t === "tin2") render();     // shows the automatic exit at once
+      if (t !== "note") {   // a time equal to the automatic one is not stored, and the automatic times update at once
+        const auto = times({ ...e, [t]: "" }, $("pStart").value, $("pEnd").value)[t];
+        if (auto && inp.value === auto) e[t] = "";
+        render();
+      }
     });
     const ni = d.querySelector("[data-t=note]"); if (ni) ni.oninput = ni.onchange;
     box.appendChild(d);
@@ -312,10 +315,17 @@ function autoOut(tin, end) {   // the end comes after the entry, counting forwar
   const m = s => { const [h, mi] = s.split(":").map(Number); return h * 60 + mi; };
   const d = (m(end) - m(tin) + 1440) % 1440;
   return d > 0 && d < 1200 ? end : ""; }
+// missing times (same rules as the Excel file): members: empty = program time; only an exit -> entry = start;
+// second exit with no entry -> second entry = first exit (if after the start); an entry with no exit -> exit = end
 function times(e, start, end) {
-  const t2 = { tin2: e.two ? e.tin2 : "", tout2: e.two ? (e.tout2 || autoOut(e.tin2, end)) : "" };
-  if (e.guest || LEADERS.includes(e.name)) return { tin: e.tin || "", tout: e.tout || autoOut(e.tin, end), ...t2 };
-  return { tin: e.tin || start, tout: e.tout || end, ...t2 }; }
+  const free = e.guest || LEADERS.includes(e.name);
+  let tin = e.tin || (free ? "" : start), tout = e.tout || (free ? "" : end);
+  let tin2 = e.two ? e.tin2 || "" : "", tout2 = e.two ? e.tout2 || "" : "";
+  if (!tin && tout) tin = start;
+  if (!tin2 && tout2 && tout && autoOut(start, tout)) tin2 = tout;
+  if (tin && !tout) tout = autoOut(tin, end);
+  if (tin2 && !tout2) tout2 = autoOut(tin2, end);
+  return { tin, tout, tin2, tout2 }; }
 function counts() {
   const { rows, guests } = rowsForOutput(), c = { pres: 0, leave: 0, abs: 0, guest: guests.length };
   rows.forEach((r) => c[r.st]++); return c;
