@@ -307,7 +307,11 @@ function rowsForOutput() {
   return { rows, guests };
 }
 // an entry time with no exit: the exit is the end of the program (when the entry is before it)
-function autoOut(tin, end) { return tin && end && tin < end ? end : ""; }
+function autoOut(tin, end) {   // the end comes after the entry, counting forward past midnight (within 20 h)
+  if (!tin || !end) return "";
+  const m = s => { const [h, mi] = s.split(":").map(Number); return h * 60 + mi; };
+  const d = (m(end) - m(tin) + 1440) % 1440;
+  return d > 0 && d < 1200 ? end : ""; }
 function times(e, start, end) {
   const t2 = { tin2: e.two ? e.tin2 : "", tout2: e.two ? (e.tout2 || autoOut(e.tin2, end)) : "" };
   if (e.guest || LEADERS.includes(e.name)) return { tin: e.tin || "", tout: e.tout || autoOut(e.tin, end), ...t2 };
